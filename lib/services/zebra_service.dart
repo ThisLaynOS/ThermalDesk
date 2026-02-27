@@ -104,6 +104,7 @@ class ZebraService {
 
   String _buildBasic(String title, String barcode, int pw, int ll) => '''
 ^XA
+^MNY
 ^PW$pw
 ^LL$ll
 ^CI28
@@ -111,25 +112,30 @@ class ZebraService {
 ^FO20,65^BCN,90,Y,N,N^FD$barcode^FS
 ^XZ'''.trim();
 
-  // Layout para etiquetas longas/verticais (30x100mm)
-  // Usa ^FWR para rotacionar todo o conteúdo 90° - texto fica horizontal para leitura
+  // Layout para etiquetas 30x100mm (gôndola)
+  // Rotação 90° - conteúdo ao longo dos 100mm de comprimento
+  // Margens: 16 dots (~2mm) em cada lado
   String _buildBasicLong(String title, String barcode, int pw, int ll) {
-    // Com rotação 90°: a largura visual vira ll, altura visual vira pw
-    final barcodeWidth = (ll * 0.5).toInt().clamp(100, 400);
+    // pw=240 (30mm), ll=800 (100mm) a 200dpi
+    // Área útil: 208 dots altura x 768 dots comprimento
+    final marginY = 16;
+    final usableLength = ll - (marginY * 2);
     return '''
 ^XA
+^MNY
 ^PW$pw
 ^LL$ll
 ^CI28
 ^FWR
-^FO${pw - 50},20^A0R,32,32^FB${ll - 40},2,,L^FD$title^FS
-^FO${pw - 120},20^BCR,70,Y,N,N^FD$barcode^FS
+^FO${pw - 45},$marginY^A0R,36,36^FB$usableLength,2,,L^FD$title^FS
+^FO${pw - 160},$marginY^BCR,90,Y,N,N^FD$barcode^FS
 ^FWN
 ^XZ'''.trim();
   }
 
   String _buildProduct(String title, String barcode, String subtitle, int pw, int ll) => '''
 ^XA
+^MNY
 ^PW$pw
 ^LL$ll
 ^CI28
@@ -145,22 +151,26 @@ class ZebraService {
     int pw,
     int ll,
   ) {
-    // Com rotação 90°: conteúdo fica horizontal para leitura natural
+    // Layout 30x100mm - Produto com descrição e código de barras
+    final marginY = 16;
+    final usableLength = ll - (marginY * 2);
     return '''
 ^XA
+^MNY
 ^PW$pw
 ^LL$ll
 ^CI28
 ^FWR
-^FO${pw - 40},15^A0R,28,28^FB${ll - 30},2,,L^FD$title^FS
-^FO${pw - 70},15^A0R,20,20^FB${ll - 30},2,,L^FD$subtitle^FS
-^FO${pw - 150},15^BCR,60,Y,N,N^FD$barcode^FS
+^FO${pw - 40},$marginY^A0R,32,32^FB$usableLength,1,,L^FD$title^FS
+^FO${pw - 75},$marginY^A0R,24,24^FB$usableLength,2,,L^FD$subtitle^FS
+^FO${pw - 180},$marginY^BCR,80,Y,N,N^FD$barcode^FS
 ^FWN
 ^XZ'''.trim();
   }
 
   String _buildAddress(String name, String address, int pw, int ll) => '''
 ^XA
+^MNY
 ^PW$pw
 ^LL$ll
 ^CI28
@@ -168,20 +178,26 @@ class ZebraService {
 ^FO20,55^A0N,22,22^FB${pw - 40},4,,L^FD$address^FS
 ^XZ'''.trim();
 
-  String _buildAddressLong(String name, String address, int pw, int ll) => '''
+  String _buildAddressLong(String name, String address, int pw, int ll) {
+    final marginY = 16;
+    final usableLength = ll - (marginY * 2);
+    return '''
 ^XA
+^MNY
 ^PW$pw
 ^LL$ll
 ^CI28
 ^FWR
-^FO${pw - 35},15^A0R,26,26^FB${ll - 30},2,,L^FDDe: $name^FS
-^FO${pw - 70},15^A0R,20,20^FB${ll - 30},6,,L^FD$address^FS
-^FO30,15^A0R,14,14^FB${ll - 30},1,,L^FDRemetente: Zebra Label Pro^FS
+^FO${pw - 35},$marginY^A0R,28,28^FB$usableLength,1,,L^FDDe: $name^FS
+^FO${pw - 75},$marginY^A0R,22,22^FB$usableLength,4,,L^FD$address^FS
+^FO25,$marginY^A0R,14,14^FB$usableLength,1,,L^FDZebra Label Pro^FS
 ^FWN
 ^XZ'''.trim();
+  }
 
   String _buildShipping(String title, String barcode, String ref, int pw, int ll) => '''
 ^XA
+^MNY
 ^PW$pw
 ^LL$ll
 ^CI28
@@ -191,17 +207,20 @@ class ZebraService {
 ^XZ'''.trim();
 
   String _buildShippingLong(String title, String barcode, String ref, int pw, int ll) {
-    // Rotacionado 90° para leitura horizontal
+    // Layout 30x100mm - Etiqueta de envio
+    final marginY = 16;
+    final usableLength = ll - (marginY * 2);
     return '''
 ^XA
+^MNY
 ^PW$pw
 ^LL$ll
 ^CI28
 ^FWR
-^FO${pw - 30},15^A0R,18,18^FDENVIO^FS
-^FO${pw - 55},15^A0R,26,26^FB${ll - 30},2,,L^FD$title^FS
-^FO${pw - 85},15^A0R,16,16^FB${ll - 30},1,,L^FDRef: $ref^FS
-^FO${pw - 180},15^BCR,70,Y,N,N^FD$barcode^FS
+^FO${pw - 28},$marginY^A0R,18,18^FDENVIO^FS
+^FO${pw - 55},$marginY^A0R,28,28^FB$usableLength,1,,L^FD$title^FS
+^FO${pw - 90},$marginY^A0R,20,20^FB$usableLength,1,,L^FDRef: $ref^FS
+^FO${pw - 190},$marginY^BCR,80,Y,N,N^FD$barcode^FS
 ^FWN
 ^XZ'''.trim();
   }
@@ -212,6 +231,7 @@ class ZebraService {
   
   String _buildInventory(String title, String barcode, String location, int pw, int ll) => '''
 ^XA
+^MNY
 ^PW$pw
 ^LL$ll
 ^CI28
@@ -222,17 +242,20 @@ class ZebraService {
 ^XZ'''.trim();
 
   String _buildInventoryLong(String title, String barcode, String location, int pw, int ll) {
-    // Rotacionado 90° para leitura horizontal
+    // Layout 30x100mm - Inventário/Estoque
+    final marginY = 16;
+    final usableLength = ll - (marginY * 2);
     return '''
 ^XA
+^MNY
 ^PW$pw
 ^LL$ll
 ^CI28
 ^FWR
-^FO${pw - 30},15^A0R,14,14^FDINVENTARIO^FS
-^FO${pw - 55},15^A0R,24,24^FB${ll - 30},2,,L^FD$title^FS
-^FO${pw - 85},15^A0R,16,16^FB${ll - 30},1,,L^FDLocal: $location^FS
-^FO${pw - 170},15^BCR,65,Y,N,N^FD$barcode^FS
+^FO${pw - 28},$marginY^A0R,16,16^FDINVENTARIO^FS
+^FO${pw - 55},$marginY^A0R,28,28^FB$usableLength,1,,L^FD$title^FS
+^FO${pw - 90},$marginY^A0R,20,20^FB$usableLength,1,,L^FDLocal: $location^FS
+^FO${pw - 185},$marginY^BCR,75,Y,N,N^FD$barcode^FS
 ^FWN
 ^XZ'''.trim();
   }
@@ -243,6 +266,7 @@ class ZebraService {
   
   String _buildPriceTag(String product, String barcode, String price, int pw, int ll) => '''
 ^XA
+^MNY
 ^PW$pw
 ^LL$ll
 ^CI28
@@ -252,16 +276,23 @@ class ZebraService {
 ^XZ'''.trim();
 
   String _buildPriceTagLong(String product, String barcode, String price, int pw, int ll) {
-    // Rotacionado 90° para leitura horizontal
+    // Layout 30x100mm - GÔNDOLA DE SUPERMERCADO
+    // Produto pequeno no topo, PREÇO GRANDE no centro, código de barras embaixo
+    final marginY = 16;
+    final usableLength = ll - (marginY * 2);
+    // Calcula posição central para o preço
+    final priceX = (pw ~/ 2) + 30; // Centro vertical
     return '''
 ^XA
+^MNY
 ^PW$pw
 ^LL$ll
 ^CI28
 ^FWR
-^FO${pw - 35},15^A0R,22,22^FB${ll - 30},2,,C^FD$product^FS
-^FO${(pw ~/ 2) + 20},15^A0R,48,48^FB${ll - 30},1,,C^FDR\$ $price^FS
-^FO60,15^BCR,50,Y,N,N^FD$barcode^FS
+^FO${pw - 28},$marginY^A0R,22,22^FB$usableLength,1,,L^FD$product^FS
+^FO$priceX,$marginY^A0R,28,28^FDR\$^FS
+^FO$priceX,${marginY + 70}^A0R,80,80^FB${usableLength - 90},1,,L^FD$price^FS
+^FO35,$marginY^BCR,50,N,N,N^FD$barcode^FS
 ^FWN
 ^XZ'''.trim();
   }
@@ -274,6 +305,7 @@ class ZebraService {
     final qrSize = (ll - 60).clamp(80, pw - 40);
     return '''
 ^XA
+^MNY
 ^PW$pw
 ^LL$ll
 ^CI28
@@ -284,22 +316,23 @@ class ZebraService {
   }
 
   String _buildQrCodeLong(String title, String data, String subtitle, int pw, int ll) {
-    // Rotacionado 90° para leitura horizontal
-    // QR Code não precisa rotacionar, funciona em qualquer orientação
-    final qrSize = (pw - 40).clamp(60, 150);
+    // Layout 30x100mm - QR Code
+    // Texto à esquerda, QR Code grande à direita
+    final marginY = 16;
+    final qrSize = pw - 60; // ~180 dots para QR
+    final textWidth = ll - qrSize - marginY - 40;
     return '''
 ^XA
+^MNY
 ^PW$pw
 ^LL$ll
 ^CI28
 ^FWR
-^FO${pw - 35},20^A0R,22,22^FB${ll - qrSize - 60},2,,L^FD$title^FS
-^FO${pw - 65},20^A0R,16,16^FB${ll - qrSize - 60},3,,L^FD$subtitle^FS
+^FO${pw - 35},$marginY^A0R,24,24^FB$textWidth,2,,L^FD$title^FS
+^FO${pw - 75},$marginY^A0R,18,18^FB$textWidth,4,,L^FD$subtitle^FS
+^FO25,$marginY^A0R,14,14^FB$textWidth,1,,L^FD$data^FS
 ^FWN
-^FO${(pw - qrSize) ~/ 2},${ll - qrSize - 30}^BQN,2,${qrSize ~/ 10}^FDLA,$data^FS
-^FWR
-^FO30,20^A0R,12,12^FB${ll - 40},1,,L^FD$data^FS
-^FWN
+^FO${(pw - qrSize) ~/ 2},${ll - qrSize - marginY}^BQN,2,${(qrSize ~/ 12).clamp(4, 10)}^FDLA,$data^FS
 ^XZ'''.trim();
   }
 
@@ -309,6 +342,7 @@ class ZebraService {
   
   String _buildCable(String label, String code, int pw, int ll) => '''
 ^XA
+^MNY
 ^PW$pw
 ^LL$ll
 ^CI28
@@ -320,30 +354,32 @@ class ZebraService {
 ^XZ'''.trim();
 
   String _buildCableLong(String label, String code, int pw, int ll) {
-    // Rotacionado 90° - repete a identificação ao longo do comprimento
-    // Útil para enrolar em cabos e fios
-    final repeatCount = (ll ~/ 150).clamp(2, 6);
-    final spacing = ll ~/ repeatCount;
+    // Layout 30x100mm - Identificação de cabos
+    // Repete o texto ao longo do comprimento para enrolar em cabos
+    final marginY = 16;
+    final repeatCount = ((ll - marginY * 2) ~/ 160).clamp(2, 5);
+    final spacing = (ll - marginY * 2) ~/ repeatCount;
     
     var zpl = '''
 ^XA
+^MNY
 ^PW$pw
 ^LL$ll
 ^CI28
 ^FWR''';
     
     for (var i = 0; i < repeatCount; i++) {
-      final y = 20 + (i * spacing);
-      final x = pw - 35;
+      final y = marginY + (i * spacing);
+      final x = pw - 40;
       zpl += '''
 
-^FO$x,$y^A0R,22,22^FB${spacing - 40},1,,L^FD$label^FS
-^FO${x - 30},$y^A0R,16,16^FB${spacing - 40},1,,L^FD$code^FS''';
+^FO$x,$y^A0R,26,26^FB${spacing - 30},1,,L^FD$label^FS
+^FO${x - 35},$y^A0R,20,20^FB${spacing - 30},1,,L^FD$code^FS''';
       if (i < repeatCount - 1) {
-        final lineY = y + spacing - 10;
+        final lineY = y + spacing - 5;
         zpl += '''
 
-^FO30,$lineY^GB${pw - 60},1,1^FS''';
+^FO25,$lineY^GB${pw - 50},2,2^FS''';
       }
     }
     
