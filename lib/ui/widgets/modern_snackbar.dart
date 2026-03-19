@@ -55,36 +55,36 @@ class ModernSnackbar {
 
   static _SnackConfig _getConfig(SnackType type) {
     return switch (type) {
-      SnackType.success => _SnackConfig(
+      SnackType.success => const _SnackConfig(
           icon: Icons.check_circle_rounded,
           iconColor: Colors.white,
           gradientColors: [
-            const Color(0xFF00C853),
-            const Color(0xFF69F0AE),
+            Color(0xFF00C853),
+            Color(0xFF69F0AE),
           ],
         ),
-      SnackType.error => _SnackConfig(
+      SnackType.error => const _SnackConfig(
           icon: Icons.error_rounded,
           iconColor: Colors.white,
           gradientColors: [
-            const Color(0xFFD32F2F),
-            const Color(0xFFFF5252),
+            Color(0xFFD32F2F),
+            Color(0xFFFF5252),
           ],
         ),
-      SnackType.warning => _SnackConfig(
+      SnackType.warning => const _SnackConfig(
           icon: Icons.warning_rounded,
           iconColor: Colors.white,
           gradientColors: [
-            const Color(0xFFFF6D00),
-            const Color(0xFFFFAB40),
+            Color(0xFFFF6D00),
+            Color(0xFFFFAB40),
           ],
         ),
-      SnackType.info => _SnackConfig(
+      SnackType.info => const _SnackConfig(
           icon: Icons.info_rounded,
           iconColor: Colors.white,
           gradientColors: [
-            const Color(0xFF2196F3),
-            const Color(0xFF64B5F6),
+            Color(0xFF2196F3),
+            Color(0xFF64B5F6),
           ],
         ),
     };

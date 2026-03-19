@@ -5,11 +5,18 @@ import 'package:zebra_label_pro/core/responsive.dart';
 import 'package:zebra_label_pro/models/label_job.dart';
 import 'package:zebra_label_pro/providers/history_provider.dart';
 import 'package:zebra_label_pro/providers/printer_provider.dart';
+import 'package:zebra_label_pro/services/labelary_service.dart';
+import 'dart:async';
+import 'dart:typed_data';
 
 class PreviewCard extends ConsumerStatefulWidget {
   final TextEditingController titleCtrl;
   final TextEditingController barcodeCtrl;
   final TextEditingController subtitleCtrl;
+  final TextEditingController previousPriceCtrl;
+  final TextEditingController newPriceCtrl;
+  final TextEditingController labelCountCtrl;
+  final TextEditingController expiryDateCtrl;
   final LabelTemplate template;
   final VoidCallback onCopyZpl;
 
@@ -18,6 +25,10 @@ class PreviewCard extends ConsumerStatefulWidget {
     required this.titleCtrl,
     required this.barcodeCtrl,
     required this.subtitleCtrl,
+    required this.previousPriceCtrl,
+    required this.newPriceCtrl,
+    required this.labelCountCtrl,
+    required this.expiryDateCtrl,
     required this.template,
     required this.onCopyZpl,
   });
@@ -27,21 +38,93 @@ class PreviewCard extends ConsumerStatefulWidget {
 }
 
 class _PreviewCardState extends ConsumerState<PreviewCard> {
+  late LabelaryService _labelaryService;
+  List<int>? _renderedImage;
+  bool _isRenderingLabelary = false;
+  String? _lastZpl;
+  Timer? _renderDebounce;
+
   @override
   void initState() {
     super.initState();
-    widget.titleCtrl.addListener(_rebuild);
-    widget.barcodeCtrl.addListener(_rebuild);
-    widget.subtitleCtrl.addListener(_rebuild);
+    _labelaryService = LabelaryService();
+    widget.titleCtrl.addListener(_onContentChange);
+    widget.barcodeCtrl.addListener(_onContentChange);
+    widget.subtitleCtrl.addListener(_onContentChange);
+    widget.previousPriceCtrl.addListener(_onContentChange);
+    widget.newPriceCtrl.addListener(_onContentChange);
+    widget.labelCountCtrl.addListener(_onContentChange);
+    widget.expiryDateCtrl.addListener(_onContentChange);
   }
 
-  void _rebuild() => setState(() {});
+  void _onContentChange() {
+    // Debounce para não fazer chamadas excessivas (500ms)
+    _renderDebounce?.cancel();
+    _renderDebounce = Timer(const Duration(milliseconds: 500), _renderLabelaryImage);
+    setState(() {});
+  }
+
+  Future<void> _renderLabelaryImage() async {
+    final cfg = ref.read(printerConfigProvider);
+    final zpl = ref.read(zebraServiceProvider).buildZpl(
+          title: widget.titleCtrl.text,
+          barcode: widget.barcodeCtrl.text,
+          subtitle: widget.subtitleCtrl.text,
+          template: widget.template,
+          cfg: cfg,
+          previousPrice: widget.template == LabelTemplate.promoShelf
+                || widget.template == LabelTemplate.promoExpiry
+              ? widget.previousPriceCtrl.text
+              : null,
+          newPrice: widget.template == LabelTemplate.promoShelf
+                || widget.template == LabelTemplate.promoExpiry
+              ? widget.newPriceCtrl.text
+              : null,
+            expiryDate: widget.template == LabelTemplate.promoExpiry
+              ? widget.expiryDateCtrl.text
+              : null,
+          copies: widget.template == LabelTemplate.promoShelf
+                || widget.template == LabelTemplate.promoExpiry
+              ? (int.tryParse(widget.labelCountCtrl.text.trim()) ?? 1)
+              : 1,
+        );
+
+    // Não renderizar se o ZPL é igual ao anterior
+    if (zpl == _lastZpl) return;
+
+    if (!mounted) return;
+    setState(() {
+      _isRenderingLabelary = true;
+    });
+
+    final result = await _labelaryService.renderZpl(zpl);
+
+    if (!mounted) return;
+
+    if (result is LabelarySuccess<List<int>>) {
+      _lastZpl = zpl;
+      setState(() {
+        _renderedImage = result.value;
+        _isRenderingLabelary = false;
+      });
+    } else if (result is LabelaryFailure<List<int>>) {
+      // Mostrar erro e manter preview simulado
+      setState(() {
+        _isRenderingLabelary = false;
+      });
+    }
+  }
 
   @override
   void dispose() {
-    widget.titleCtrl.removeListener(_rebuild);
-    widget.barcodeCtrl.removeListener(_rebuild);
-    widget.subtitleCtrl.removeListener(_rebuild);
+    _renderDebounce?.cancel();
+    widget.titleCtrl.removeListener(_onContentChange);
+    widget.barcodeCtrl.removeListener(_onContentChange);
+    widget.subtitleCtrl.removeListener(_onContentChange);
+    widget.previousPriceCtrl.removeListener(_onContentChange);
+    widget.newPriceCtrl.removeListener(_onContentChange);
+    widget.labelCountCtrl.removeListener(_onContentChange);
+    widget.expiryDateCtrl.removeListener(_onContentChange);
     super.dispose();
   }
 
@@ -55,6 +138,21 @@ class _PreviewCardState extends ConsumerState<PreviewCard> {
           subtitle: widget.subtitleCtrl.text,
           template: widget.template,
           cfg: cfg,
+        previousPrice: widget.template == LabelTemplate.promoShelf
+            || widget.template == LabelTemplate.promoExpiry
+          ? widget.previousPriceCtrl.text
+          : null,
+        newPrice: widget.template == LabelTemplate.promoShelf
+            || widget.template == LabelTemplate.promoExpiry
+          ? widget.newPriceCtrl.text
+          : null,
+        expiryDate: widget.template == LabelTemplate.promoExpiry
+          ? widget.expiryDateCtrl.text
+          : null,
+        copies: widget.template == LabelTemplate.promoShelf
+            || widget.template == LabelTemplate.promoExpiry
+          ? (int.tryParse(widget.labelCountCtrl.text.trim()) ?? 1)
+          : 1,
         );
 
     final isMobile = Responsive.isMobile(context);
@@ -102,16 +200,25 @@ class _PreviewCardState extends ConsumerState<PreviewCard> {
             ),
             SizedBox(height: isMobile ? 10 : 12),
             
-            // Preview realista da etiqueta
+            // Preview com Labelary (imagem real) ou simulado (fallback)
             Center(
-              child: _LabelPreview(
-                titleCtrl: widget.titleCtrl,
-                barcodeCtrl: widget.barcodeCtrl,
-                subtitleCtrl: widget.subtitleCtrl,
-                template: widget.template,
-                labelSize: cfg.labelSize,
-                isMobile: isMobile,
-              ),
+              child: _renderedImage != null && _renderedImage!.isNotEmpty
+                  ? _BuildLabelaryPreview(
+                      imageBytes: _renderedImage!,
+                      isLoading: _isRenderingLabelary,
+                      isMobile: isMobile,
+                    )
+                  : _LabelPreview(
+                      titleCtrl: widget.titleCtrl,
+                      barcodeCtrl: widget.barcodeCtrl,
+                      subtitleCtrl: widget.subtitleCtrl,
+                      previousPriceCtrl: widget.previousPriceCtrl,
+                      newPriceCtrl: widget.newPriceCtrl,
+                      expiryDateCtrl: widget.expiryDateCtrl,
+                      template: widget.template,
+                      labelSize: cfg.labelSize,
+                      isMobile: isMobile,
+                    ),
             ),
             SizedBox(height: isMobile ? 12 : 16),
 
@@ -185,6 +292,9 @@ class _LabelPreview extends StatelessWidget {
   final TextEditingController titleCtrl;
   final TextEditingController barcodeCtrl;
   final TextEditingController subtitleCtrl;
+  final TextEditingController previousPriceCtrl;
+  final TextEditingController newPriceCtrl;
+  final TextEditingController expiryDateCtrl;
   final LabelTemplate template;
   final String labelSize;
   final bool isMobile;
@@ -193,6 +303,9 @@ class _LabelPreview extends StatelessWidget {
     required this.titleCtrl,
     required this.barcodeCtrl,
     required this.subtitleCtrl,
+    required this.previousPriceCtrl,
+    required this.newPriceCtrl,
+    required this.expiryDateCtrl,
     required this.template,
     required this.labelSize,
     required this.isMobile,
@@ -283,6 +396,15 @@ class _LabelPreview extends StatelessWidget {
     final barcodeData = barcodeCtrl.text.trim().isEmpty ? '0000000000000' : barcodeCtrl.text.trim();
     final title = titleCtrl.text.isEmpty ? 'Título do Produto' : titleCtrl.text;
     final subtitle = subtitleCtrl.text;
+    final previousPrice = previousPriceCtrl.text.trim().isEmpty
+      ? '24,99'
+      : previousPriceCtrl.text.trim();
+    final newPrice = newPriceCtrl.text.trim().isEmpty
+      ? '19,99'
+      : newPriceCtrl.text.trim();
+    final expiryDate = expiryDateCtrl.text.trim().isEmpty
+      ? '03/2026'
+      : expiryDateCtrl.text.trim();
 
     return Column(
       children: [
@@ -372,6 +494,9 @@ class _LabelPreview extends StatelessWidget {
                             title: title,
                             subtitle: subtitle,
                             barcodeData: barcodeData,
+                            previousPrice: previousPrice,
+                            newPrice: newPrice,
+                            expiryDate: expiryDate,
                             // Inverter largura/altura para o conteúdo rotacionado
                             previewWidth: previewHeight,
                             previewHeight: previewWidth,
@@ -385,6 +510,9 @@ class _LabelPreview extends StatelessWidget {
                           title: title,
                           subtitle: subtitle,
                           barcodeData: barcodeData,
+                          previousPrice: previousPrice,
+                          newPrice: newPrice,
+                          expiryDate: expiryDate,
                           previewWidth: previewWidth,
                           previewHeight: previewHeight,
                         ),
@@ -415,6 +543,9 @@ class _LabelPreview extends StatelessWidget {
     required String title,
     required String subtitle,
     required String barcodeData,
+    required String previousPrice,
+    required String newPrice,
+    required String expiryDate,
     required double previewWidth,
     required double previewHeight,
   }) {
@@ -422,6 +553,23 @@ class _LabelPreview extends StatelessWidget {
     final barcodeHeight = (previewHeight * 0.25).clamp(25.0, 55.0);
     
     switch (template) {
+      case LabelTemplate.promoShelf:
+        return _buildPromoShelfLayout(
+          title,
+          barcodeData,
+          previousPrice,
+          newPrice,
+          barcodeHeight,
+        );
+      case LabelTemplate.promoExpiry:
+        return _buildPromoExpiryLayout(
+          title,
+          barcodeData,
+          previousPrice,
+          newPrice,
+          expiryDate,
+          barcodeHeight,
+        );
       case LabelTemplate.qrCode:
         return _buildQrCodeLayout(title, subtitle, barcodeData, previewWidth, previewHeight);
       case LabelTemplate.cable:
@@ -437,9 +585,134 @@ class _LabelPreview extends StatelessWidget {
       case LabelTemplate.product:
         return _buildProductLayout(title, subtitle, barcodeData, barcodeHeight);
       case LabelTemplate.basic:
-      default:
         return _buildBasicLayout(title, subtitle, barcodeData, barcodeHeight);
     }
+  }
+
+  Widget _buildPromoShelfLayout(
+    String title,
+    String barcodeData,
+    String previousPrice,
+    String newPrice,
+    double barcodeHeight,
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: TextStyle(
+            fontSize: isMobile ? 11 : 13,
+            fontWeight: FontWeight.w700,
+            color: Colors.black,
+          ),
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+        ),
+        const SizedBox(height: 4),
+        Text(
+          'EAN: $barcodeData',
+          style: TextStyle(
+            fontSize: isMobile ? 8 : 9,
+            color: Colors.black54,
+            fontFamily: 'monospace',
+          ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        const SizedBox(height: 6),
+        Text(
+          'De R\$ $previousPrice',
+          style: TextStyle(
+            fontSize: isMobile ? 14 : 16,
+            fontWeight: FontWeight.w600,
+            color: Colors.black,
+          ),
+        ),
+        const Spacer(),
+        _buildBarcode(barcodeData, barcodeHeight * 0.85, showText: false),
+        const SizedBox(height: 6),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+          color: Colors.black,
+          child: Text(
+            'Por R\$ $newPrice',
+            style: TextStyle(
+              fontSize: isMobile ? 18 : 22,
+              fontWeight: FontWeight.w800,
+              color: Colors.white,
+            ),
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPromoExpiryLayout(
+    String title,
+    String barcodeData,
+    String previousPrice,
+    String newPrice,
+    String expiryDate,
+    double barcodeHeight,
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: TextStyle(
+            fontSize: isMobile ? 11 : 13,
+            fontWeight: FontWeight.w700,
+            color: Colors.black,
+          ),
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+        ),
+        const SizedBox(height: 4),
+        Text(
+          'Próximo ao vencimento: $expiryDate',
+          style: TextStyle(
+            fontSize: isMobile ? 9 : 10,
+            color: Colors.black87,
+          ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        const SizedBox(height: 4),
+        Text(
+          'De R\$ $previousPrice',
+          style: TextStyle(
+            fontSize: isMobile ? 14 : 16,
+            fontWeight: FontWeight.w600,
+            color: Colors.black,
+          ),
+        ),
+        const Spacer(),
+        _buildBarcode(barcodeData, barcodeHeight * 0.85, showText: false),
+        const SizedBox(height: 6),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+          color: Colors.black,
+          child: Text(
+            'Por R\$ $newPrice',
+            style: TextStyle(
+              fontSize: isMobile ? 18 : 22,
+              fontWeight: FontWeight.w800,
+              color: Colors.white,
+            ),
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
+    );
   }
 
   Widget _buildBasicLayout(String title, String subtitle, String barcodeData, double barcodeHeight) {
@@ -598,7 +871,6 @@ class _LabelPreview extends StatelessWidget {
 
   Widget _buildCableLayout(String title, String barcodeData, double previewHeight) {
     // Layout para etiqueta de cabo (geralmente mais estreita/longa)
-    final isCompact = previewHeight < 100;
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
@@ -870,7 +1142,7 @@ class _LabelPreview extends StatelessWidget {
     );
   }
 
-  Widget _buildBarcode(String data, double height) {
+  Widget _buildBarcode(String data, double height, {bool showText = true}) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -884,17 +1156,123 @@ class _LabelPreview extends StatelessWidget {
             color: Colors.black,
           ),
         ),
-        const SizedBox(height: 1),
-        Text(
-          data.length > 20 ? '${data.substring(0, 20)}...' : data,
-          style: TextStyle(
-            fontSize: isMobile ? 8 : 9,
-            color: Colors.black,
-            fontFamily: 'monospace',
-            letterSpacing: 0.5,
+        if (showText) ...[
+          const SizedBox(height: 1),
+          Text(
+            data.length > 20 ? '${data.substring(0, 20)}...' : data,
+            style: TextStyle(
+              fontSize: isMobile ? 8 : 9,
+              color: Colors.black,
+              fontFamily: 'monospace',
+              letterSpacing: 0.5,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
+        ],
+      ],
+    );
+  }
+}
+
+/// Preview widget que exibe a imagem renderizada por Labelary
+class _BuildLabelaryPreview extends StatelessWidget {
+  final List<int> imageBytes;
+  final bool isLoading;
+  final bool isMobile;
+
+  const _BuildLabelaryPreview({
+    required this.imageBytes,
+    required this.isLoading,
+    required this.isMobile,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        // Indicador de status
+        if (isLoading)
+          Container(
+            margin: const EdgeInsets.only(bottom: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: Colors.blue.shade50,
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const SizedBox(
+                  width: 12,
+                  height: 12,
+                  child: CircularProgressIndicator(strokeWidth: 1.5),
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  'Renderizando imagem...',
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: Colors.blue.shade700,
+                  ),
+                ),
+              ],
+            ),
+          )
+        else
+          Container(
+            margin: const EdgeInsets.only(bottom: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: Colors.green.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.check_circle, size: 12, color: Colors.green.shade700),
+                const SizedBox(width: 6),
+                Text(
+                  'Renderizado via Labelary API',
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: Colors.green.shade700,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        // Imagem renderizada com sombra
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(2),
+            border: Border.all(color: Colors.grey.shade400, width: 1),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.15),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Image.memory(
+            Uint8List.fromList(imageBytes),
+            fit: BoxFit.contain,
+            width: isMobile ? 300 : 400,
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.only(top: 8),
+          child: Text(
+            'Preview renderizado real • Clique em "Ver código ZPL" para ajustes',
+            style: TextStyle(
+              fontSize: 9,
+              color: Colors.grey.shade500,
+              fontStyle: FontStyle.italic,
+            ),
+          ),
         ),
       ],
     );

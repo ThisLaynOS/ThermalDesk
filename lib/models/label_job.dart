@@ -10,6 +10,8 @@ enum LabelTemplate {
   priceTag, 
   qrCode,
   cable,
+  promoShelf,
+  promoExpiry,
 }
 
 extension LabelTemplateLabel on LabelTemplate {
@@ -22,6 +24,8 @@ extension LabelTemplateLabel on LabelTemplate {
         LabelTemplate.priceTag => 'Preço',
         LabelTemplate.qrCode => 'QR Code',
         LabelTemplate.cable => 'Cabo/Fio',
+        LabelTemplate.promoShelf => 'Oferta Gôndola',
+        LabelTemplate.promoExpiry => 'Oferta Vencimento',
       };
 
   String get description => switch (this) {
@@ -33,6 +37,10 @@ extension LabelTemplateLabel on LabelTemplate {
         LabelTemplate.priceTag => 'Etiqueta de preço para gôndola',
         LabelTemplate.qrCode => 'QR Code com informações',
         LabelTemplate.cable => 'Identificação de cabos/fios',
+        LabelTemplate.promoShelf =>
+          'Produto, preço anterior/novo e quantidade de impressão',
+        LabelTemplate.promoExpiry =>
+          'Oferta com vencimento (mês/ano), preços e quantidade',
       };
 
   IconData get icon => switch (this) {
@@ -44,6 +52,8 @@ extension LabelTemplateLabel on LabelTemplate {
         LabelTemplate.priceTag => Icons.sell_outlined,
         LabelTemplate.qrCode => Icons.qr_code_2,
         LabelTemplate.cable => Icons.cable_outlined,
+        LabelTemplate.promoShelf => Icons.local_offer_outlined,
+        LabelTemplate.promoExpiry => Icons.event_outlined,
       };
 }
 

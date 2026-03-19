@@ -186,8 +186,8 @@ class _BarcodeScannerSheetState extends State<BarcodeScannerSheet> {
           ),
           
           // Supported formats
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+          const Padding(
+            padding: EdgeInsets.fromLTRB(16, 0, 16, 24),
             child: Wrap(
               spacing: 8,
               runSpacing: 4,

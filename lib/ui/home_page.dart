@@ -31,6 +31,10 @@ class _HomePageState extends ConsumerState<HomePage> {
   final _titleCtrl = TextEditingController();
   final _barcodeCtrl = TextEditingController();
   final _subtitleCtrl = TextEditingController();
+  final _previousPriceCtrl = TextEditingController();
+  final _newPriceCtrl = TextEditingController();
+  final _labelCountCtrl = TextEditingController(text: '1');
+  final _expiryDateCtrl = TextEditingController();
   LabelTemplate _template = LabelTemplate.product;
 
   @override
@@ -38,6 +42,10 @@ class _HomePageState extends ConsumerState<HomePage> {
     _titleCtrl.dispose();
     _barcodeCtrl.dispose();
     _subtitleCtrl.dispose();
+    _previousPriceCtrl.dispose();
+    _newPriceCtrl.dispose();
+    _labelCountCtrl.dispose();
+    _expiryDateCtrl.dispose();
     super.dispose();
   }
 
@@ -82,6 +90,21 @@ class _HomePageState extends ConsumerState<HomePage> {
       subtitle: _subtitleCtrl.text,
       template: _template,
       cfg: cfg,
+      previousPrice: _template == LabelTemplate.promoShelf
+          || _template == LabelTemplate.promoExpiry
+        ? _previousPriceCtrl.text
+        : null,
+      newPrice: _template == LabelTemplate.promoShelf
+          || _template == LabelTemplate.promoExpiry
+        ? _newPriceCtrl.text
+        : null,
+      expiryDate: _template == LabelTemplate.promoExpiry
+        ? _expiryDateCtrl.text
+        : null,
+      copies: _template == LabelTemplate.promoShelf
+          || _template == LabelTemplate.promoExpiry
+        ? (int.tryParse(_labelCountCtrl.text.trim()) ?? 1)
+        : 1,
     );
 
     final result = await service.sendZpl(cfg, zpl);
@@ -117,6 +140,21 @@ class _HomePageState extends ConsumerState<HomePage> {
           subtitle: _subtitleCtrl.text,
           template: _template,
           cfg: cfg,
+        previousPrice: _template == LabelTemplate.promoShelf
+            || _template == LabelTemplate.promoExpiry
+          ? _previousPriceCtrl.text
+          : null,
+        newPrice: _template == LabelTemplate.promoShelf
+            || _template == LabelTemplate.promoExpiry
+          ? _newPriceCtrl.text
+          : null,
+        expiryDate: _template == LabelTemplate.promoExpiry
+          ? _expiryDateCtrl.text
+          : null,
+        copies: _template == LabelTemplate.promoShelf
+            || _template == LabelTemplate.promoExpiry
+          ? (int.tryParse(_labelCountCtrl.text.trim()) ?? 1)
+          : 1,
         );
     await Clipboard.setData(ClipboardData(text: zpl));
     if (!mounted) return;
@@ -221,6 +259,10 @@ class _HomePageState extends ConsumerState<HomePage> {
       titleCtrl: _titleCtrl,
       barcodeCtrl: _barcodeCtrl,
       subtitleCtrl: _subtitleCtrl,
+      previousPriceCtrl: _previousPriceCtrl,
+      newPriceCtrl: _newPriceCtrl,
+      labelCountCtrl: _labelCountCtrl,
+      expiryDateCtrl: _expiryDateCtrl,
       selectedTemplate: _template,
       onTemplateChange: (t) => setState(() => _template = t),
       onTest: _testConnection,
@@ -239,6 +281,10 @@ class _HomePageState extends ConsumerState<HomePage> {
       titleCtrl: _titleCtrl,
       barcodeCtrl: _barcodeCtrl,
       subtitleCtrl: _subtitleCtrl,
+      previousPriceCtrl: _previousPriceCtrl,
+      newPriceCtrl: _newPriceCtrl,
+      labelCountCtrl: _labelCountCtrl,
+      expiryDateCtrl: _expiryDateCtrl,
       template: _template,
       onCopyZpl: _copyZpl,
     );

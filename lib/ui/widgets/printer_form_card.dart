@@ -12,6 +12,10 @@ class PrinterFormCard extends ConsumerWidget {
   final TextEditingController titleCtrl;
   final TextEditingController barcodeCtrl;
   final TextEditingController subtitleCtrl;
+  final TextEditingController previousPriceCtrl;
+  final TextEditingController newPriceCtrl;
+  final TextEditingController labelCountCtrl;
+  final TextEditingController expiryDateCtrl;
   final LabelTemplate selectedTemplate;
   final ValueChanged<LabelTemplate> onTemplateChange;
   final VoidCallback onTest;
@@ -24,6 +28,10 @@ class PrinterFormCard extends ConsumerWidget {
     required this.titleCtrl,
     required this.barcodeCtrl,
     required this.subtitleCtrl,
+    required this.previousPriceCtrl,
+    required this.newPriceCtrl,
+    required this.labelCountCtrl,
+    required this.expiryDateCtrl,
     required this.selectedTemplate,
     required this.onTemplateChange,
     required this.onTest,
@@ -66,23 +74,16 @@ class PrinterFormCard extends ConsumerWidget {
               TextFormField(
                 controller: titleCtrl,
                 decoration: InputDecoration(
-                  labelText: 'Título / Nome do produto',
+                  labelText: selectedTemplate == LabelTemplate.promoShelf ||
+                          selectedTemplate == LabelTemplate.promoExpiry
+                      ? 'Produto'
+                      : 'Título / Nome do produto',
                   prefixIcon: const Icon(Icons.title),
                   isDense: isMobile,
                 ),
                 style: TextStyle(fontSize: isMobile ? 14 : 16),
                 validator: (v) =>
                     (v == null || v.trim().isEmpty) ? 'Título obrigatório' : null,
-              ),
-              SizedBox(height: isMobile ? 10 : 12),
-              TextFormField(
-                controller: subtitleCtrl,
-                decoration: InputDecoration(
-                  labelText: 'Subtítulo / Descrição',
-                  prefixIcon: const Icon(Icons.short_text),
-                  isDense: isMobile,
-                ),
-                style: TextStyle(fontSize: isMobile ? 14 : 16),
               ),
               SizedBox(height: isMobile ? 10 : 12),
               TextFormField(
@@ -106,6 +107,92 @@ class PrinterFormCard extends ConsumerWidget {
                 style: TextStyle(fontSize: isMobile ? 14 : 16),
                 keyboardType: TextInputType.number,
               ),
+              if (selectedTemplate == LabelTemplate.promoShelf ||
+                  selectedTemplate == LabelTemplate.promoExpiry) ...[
+                SizedBox(height: isMobile ? 10 : 12),
+                TextFormField(
+                  controller: previousPriceCtrl,
+                  decoration: InputDecoration(
+                    labelText: 'Preço anterior (De)',
+                    prefixIcon: const Icon(Icons.money_off),
+                    hintText: '24,99',
+                    isDense: isMobile,
+                  ),
+                  style: TextStyle(fontSize: isMobile ? 14 : 16),
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  validator: (v) => (v == null || v.trim().isEmpty)
+                      ? 'Preço anterior obrigatório'
+                      : null,
+                ),
+                SizedBox(height: isMobile ? 10 : 12),
+                TextFormField(
+                  controller: newPriceCtrl,
+                  decoration: InputDecoration(
+                    labelText: 'Novo preço (Por)',
+                    prefixIcon: const Icon(Icons.attach_money),
+                    hintText: '19,99',
+                    isDense: isMobile,
+                  ),
+                  style: TextStyle(fontSize: isMobile ? 14 : 16),
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  validator: (v) => (v == null || v.trim().isEmpty)
+                      ? 'Novo preço obrigatório'
+                      : null,
+                ),
+                SizedBox(height: isMobile ? 10 : 12),
+                TextFormField(
+                  controller: labelCountCtrl,
+                  decoration: InputDecoration(
+                    labelText: 'Total de etiquetas para imprimir',
+                    prefixIcon: const Icon(Icons.numbers),
+                    hintText: '20',
+                    isDense: isMobile,
+                  ),
+                  style: TextStyle(fontSize: isMobile ? 14 : 16),
+                  keyboardType: TextInputType.number,
+                  validator: (v) {
+                    final qty = int.tryParse(v?.trim() ?? '');
+                    if (qty == null || qty < 1) {
+                      return 'Informe um número válido (mín. 1)';
+                    }
+                    return null;
+                  },
+                ),
+                if (selectedTemplate == LabelTemplate.promoExpiry) ...[
+                  SizedBox(height: isMobile ? 10 : 12),
+                  TextFormField(
+                    controller: expiryDateCtrl,
+                    readOnly: true,
+                    decoration: InputDecoration(
+                      labelText: 'Validade (mês/ano)',
+                      prefixIcon: const Icon(Icons.event_outlined),
+                      hintText: '03/2026',
+                      isDense: isMobile,
+                      suffixIcon: IconButton(
+                        icon: const Icon(Icons.calendar_month_outlined),
+                        tooltip: 'Selecionar mês/ano de vencimento',
+                        onPressed: () => _pickExpiryMonthYear(context),
+                      ),
+                    ),
+                    onTap: () => _pickExpiryMonthYear(context),
+                    style: TextStyle(fontSize: isMobile ? 14 : 16),
+                    validator: (v) => (v == null || v.trim().isEmpty)
+                        ? 'Informe mês/ano de vencimento'
+                        : null,
+                  ),
+                ],
+              ] else ...[
+                SizedBox(height: isMobile ? 10 : 12),
+                TextFormField(
+                  controller: subtitleCtrl,
+                  decoration: InputDecoration(
+                    labelText: 'Subtítulo / Descrição',
+                    prefixIcon: const Icon(Icons.short_text),
+                    isDense: isMobile,
+                  ),
+                  style: TextStyle(fontSize: isMobile ? 14 : 16),
+                ),
+              ],
               SizedBox(height: isMobile ? 16 : 20),
 
               // — Template picker —
@@ -132,6 +219,26 @@ class PrinterFormCard extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  Future<void> _pickExpiryMonthYear(BuildContext context) async {
+    final now = DateTime.now();
+    final initial = DateTime(now.year, now.month, 1);
+
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: initial,
+      firstDate: DateTime(now.year - 1, 1, 1),
+      lastDate: DateTime(now.year + 10, 12, 31),
+      helpText: 'Selecionar vencimento',
+      fieldLabelText: 'Data de vencimento',
+      initialDatePickerMode: DatePickerMode.year,
+    );
+
+    if (picked != null) {
+      final month = picked.month.toString().padLeft(2, '0');
+      expiryDateCtrl.text = '$month/${picked.year}';
+    }
   }
 
   Widget _buildIpPortFields(BuildContext context, WidgetRef ref, PrinterConfig cfg, bool isMobile) {
