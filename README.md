@@ -117,10 +117,6 @@ largura de 10–200 mm e altura de 10–300 mm. O limite real de papel depende d
 impressora. A importação valida formato, versão, medidas e conteúdo; textos
 são escapados em UTF-8 com `^FH` para impedir injeção de comandos.
 
-Produto, Preço, Oferta Gôndola e Oferta Vencimento foram retirados do catálogo
-padrão. Preços e validade podem ser criados como campos no designer. Registros
-antigos do histórico continuam legíveis.
-
 O seletor de arquivos funciona nativamente em Android, iOS, Windows, macOS e
 Linux. No Linux, é necessária uma sessão com `xdg-desktop-portal` e um backend
 (como `xdg-desktop-portal-gtk`). iOS requer 14 ou superior; no macOS foi
