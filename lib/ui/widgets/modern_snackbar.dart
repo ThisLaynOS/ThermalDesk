@@ -13,7 +13,7 @@ class ModernSnackbar {
     VoidCallback? onAction,
   }) {
     final config = _getConfig(type);
-    
+
     ScaffoldMessenger.of(context).clearSnackBars();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -56,37 +56,25 @@ class ModernSnackbar {
   static _SnackConfig _getConfig(SnackType type) {
     return switch (type) {
       SnackType.success => const _SnackConfig(
-          icon: Icons.check_circle_rounded,
-          iconColor: Colors.white,
-          gradientColors: [
-            Color(0xFF00C853),
-            Color(0xFF69F0AE),
-          ],
-        ),
+        icon: Icons.check_circle_rounded,
+        iconColor: Colors.white,
+        gradientColors: [Color(0xFF00C853), Color(0xFF69F0AE)],
+      ),
       SnackType.error => const _SnackConfig(
-          icon: Icons.error_rounded,
-          iconColor: Colors.white,
-          gradientColors: [
-            Color(0xFFD32F2F),
-            Color(0xFFFF5252),
-          ],
-        ),
+        icon: Icons.error_rounded,
+        iconColor: Colors.white,
+        gradientColors: [Color(0xFFD32F2F), Color(0xFFFF5252)],
+      ),
       SnackType.warning => const _SnackConfig(
-          icon: Icons.warning_rounded,
-          iconColor: Colors.white,
-          gradientColors: [
-            Color(0xFFFF6D00),
-            Color(0xFFFFAB40),
-          ],
-        ),
+        icon: Icons.warning_rounded,
+        iconColor: Colors.white,
+        gradientColors: [Color(0xFFFF6D00), Color(0xFFFFAB40)],
+      ),
       SnackType.info => const _SnackConfig(
-          icon: Icons.info_rounded,
-          iconColor: Colors.white,
-          gradientColors: [
-            Color(0xFF2196F3),
-            Color(0xFF64B5F6),
-          ],
-        ),
+        icon: Icons.info_rounded,
+        iconColor: Colors.white,
+        gradientColors: [Color(0xFF2196F3), Color(0xFF64B5F6)],
+      ),
     };
   }
 }
@@ -144,11 +132,7 @@ class _SnackbarContent extends StatelessWidget {
               color: Colors.white.withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: Icon(
-              icon,
-              color: iconColor,
-              size: 22,
-            ),
+            child: Icon(icon, color: iconColor, size: 22),
           ),
           const SizedBox(width: 14),
           // Mensagem

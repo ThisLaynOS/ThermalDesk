@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:zebra_label_pro/core/responsive.dart';
-import 'package:zebra_label_pro/models/label_job.dart';
-import 'package:zebra_label_pro/providers/history_provider.dart';
+import 'package:thermal_desk/core/responsive.dart';
+import 'package:thermal_desk/models/label_job.dart';
+import 'package:thermal_desk/providers/history_provider.dart';
 
 class DashboardPage extends ConsumerWidget {
   const DashboardPage({super.key});
@@ -47,7 +47,10 @@ class DashboardPage extends ConsumerWidget {
                   context,
                   title: 'Atividade Recente',
                   icon: Icons.history,
-                  child: _buildRecentActivity(context, history.take(5).toList()),
+                  child: _buildRecentActivity(
+                    context,
+                    history.take(5).toList(),
+                  ),
                 ),
               ],
             ),
@@ -57,18 +60,16 @@ class DashboardPage extends ConsumerWidget {
     );
   }
 
-  Widget _buildHeaderStats(BuildContext context, _Stats stats, ColorScheme colorScheme) {
+  Widget _buildHeaderStats(
+    BuildContext context,
+    _Stats stats,
+    ColorScheme colorScheme,
+  ) {
     final columns = Responsive.value(
       context: context,
       mobile: 2,
       tablet: 2,
       desktop: 4,
-    );
-    final aspectRatio = Responsive.value(
-      context: context,
-      mobile: 1.8,
-      tablet: 2.2,
-      desktop: 2.5,
     );
     final spacing = Responsive.cardSpacing(context);
 
@@ -77,12 +78,12 @@ class DashboardPage extends ConsumerWidget {
       crossAxisCount: columns,
       mainAxisSpacing: spacing,
       crossAxisSpacing: spacing,
-      childAspectRatio: aspectRatio,
+      mainAxisExtent: 150,
       physics: const NeverScrollableScrollPhysics(),
       children: [
         _StatCard(
           icon: Icons.print,
-          label: 'Total Impresso',
+          label: 'Tentativas de envio',
           value: '${stats.total}',
           color: colorScheme.primary,
           trend: stats.totalToday > 0 ? '+${stats.totalToday} hoje' : null,
@@ -111,7 +112,7 @@ class DashboardPage extends ConsumerWidget {
   }
 
   Widget _buildChartsSection(BuildContext context, _Stats stats) {
-    final isMobile = Responsive.isMobile(context);
+    final isMobile = !Responsive.isDesktop(context);
     final spacing = Responsive.cardSpacing(context);
 
     final templateChart = _buildCard(
@@ -162,13 +163,18 @@ class DashboardPage extends ConsumerWidget {
           children: [
             Row(
               children: [
-                Icon(icon, size: 20, color: Theme.of(context).colorScheme.primary),
+                Icon(
+                  icon,
+                  size: 20,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
                 const SizedBox(width: 8),
-                Text(
-                  title,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
+                Expanded(
+                  child: Text(
+                    title,
+                    style: Theme.of(context).textTheme.titleMedium
+                        ?.copyWith(fontWeight: FontWeight.bold),
+                  ),
                 ),
               ],
             ),
@@ -180,7 +186,10 @@ class DashboardPage extends ConsumerWidget {
     );
   }
 
-  Widget _buildTemplateChart(BuildContext context, Map<LabelTemplate, int> counts) {
+  Widget _buildTemplateChart(
+    BuildContext context,
+    Map<LabelTemplate, int> counts,
+  ) {
     if (counts.isEmpty) {
       return const Center(
         child: Padding(
@@ -284,7 +293,8 @@ class DashboardPage extends ConsumerWidget {
                 width: 28,
                 height: height.clamp(4, 100),
                 decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.8),
+                  color: Theme.of(context).colorScheme.primary
+                      .withValues(alpha: 0.8),
                   borderRadius: BorderRadius.circular(4),
                 ),
               ),
@@ -427,58 +437,46 @@ class _StatCard extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(12),
+  Widget build(BuildContext context) => Card(
+    child: Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, color: color, size: 22),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  label,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
               ),
-              child: Icon(icon, color: color, size: 24),
+            ],
+          ),
+          const Spacer(),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: color,
             ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    label,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey.shade600,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    value,
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: color,
-                    ),
-                  ),
-                  if (trend != null) ...[
-                    const SizedBox(height: 2),
-                    Text(
-                      trend!,
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: Colors.grey.shade500,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
+          ),
+          if (trend != null)
+            Text(
+              trend!,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.bodySmall,
             ),
-          ],
-        ),
+        ],
       ),
-    );
-  }
+    ),
+  );
 }

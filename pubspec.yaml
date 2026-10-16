@@ -1,8 +1,11 @@
-name: zebra_label_pro
-description: Professional Zebra ZPL Label Printer App
+name: thermal_desk
+description: Utilitário Flutter para envio e gestão de etiquetas ZPL II via socket TCP puro (RAW TCP 9100).
+
+version: 2.1.0+1
 
 environment:
-  sdk: ">=3.0.0 <4.0.0"
+  sdk: ">=3.13.0 <4.0.0"
+  flutter: ">=3.47.0"
 
 dependencies:
   flutter:
@@ -10,16 +13,17 @@ dependencies:
   flutter_riverpod: ^2.5.1
   shared_preferences: ^2.2.3
   barcode_widget: ^2.0.4
+  barcode: ^2.2.9
   intl: ^0.19.0
   uuid: ^4.4.0
   mobile_scanner: ^5.1.1
   http: ^1.1.0
+  file_picker: ^13.1.0
 
 flutter:
   uses-material-design: true
   assets:
-    - assets/logo.png
-    - assets/logow.png
+    - assets/branding/thermaldesk-abstract.png
   
 dev_dependencies:
   flutter_test:
@@ -30,13 +34,18 @@ dev_dependencies:
 flutter_launcher_icons:
   android: true
   ios: true
+  adaptive_icon_background: "#F3FAF8"
+  adaptive_icon_foreground: assets/branding/thermaldesk-abstract.png
+  background_color_ios: "#F3FAF8"
   remove_alpha_ios: true
   web:
     generate: true
+    background_color: "#F3FAF8"
+    theme_color: "#00695C"
   windows:
     generate: true
   macos:
     generate: true
   linux:
     generate: true
-  image_path: assets/logo.png
+  image_path: assets/branding/thermaldesk-abstract.png

@@ -1,4 +1,5 @@
 import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
@@ -18,7 +19,7 @@ class BarcodeScannerSheet extends StatefulWidget {
       );
       return Future.value(null);
     }
-    
+
     return showModalBottomSheet<String>(
       context: context,
       isScrollControlled: true,
@@ -37,7 +38,7 @@ class _BarcodeScannerSheetState extends State<BarcodeScannerSheet> {
     facing: CameraFacing.back,
     torchEnabled: false,
   );
-  
+
   bool _scanned = false;
   String? _lastCode;
 
@@ -49,18 +50,18 @@ class _BarcodeScannerSheetState extends State<BarcodeScannerSheet> {
 
   void _onDetect(BarcodeCapture capture) {
     if (_scanned) return;
-    
+
     final barcode = capture.barcodes.firstOrNull;
     if (barcode?.rawValue == null) return;
-    
+
     final code = barcode!.rawValue!;
-    
+
     // Evitar duplicatas
     if (code == _lastCode) return;
     _lastCode = code;
-    
+
     setState(() => _scanned = true);
-    
+
     // Feedback visual antes de fechar
     Future.delayed(const Duration(milliseconds: 300), () {
       if (mounted) Navigator.pop(context, code);
@@ -71,7 +72,7 @@ class _BarcodeScannerSheetState extends State<BarcodeScannerSheet> {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final size = MediaQuery.sizeOf(context);
-    
+
     return Container(
       height: size.height * 0.75,
       decoration: BoxDecoration(
@@ -90,7 +91,7 @@ class _BarcodeScannerSheetState extends State<BarcodeScannerSheet> {
               borderRadius: BorderRadius.circular(2),
             ),
           ),
-          
+
           // Header
           Padding(
             padding: const EdgeInsets.all(16),
@@ -104,15 +105,13 @@ class _BarcodeScannerSheetState extends State<BarcodeScannerSheet> {
                     children: [
                       Text(
                         'Escanear Código',
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.bold),
                       ),
                       Text(
                         'Aponte a câmera para o código de barras',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
-                        ),
+                        style: Theme.of(context).textTheme.bodySmall
+                            ?.copyWith(color: colorScheme.onSurfaceVariant),
                       ),
                     ],
                   ),
@@ -136,7 +135,7 @@ class _BarcodeScannerSheetState extends State<BarcodeScannerSheet> {
               ],
             ),
           ),
-          
+
           // Scanner area
           Expanded(
             child: Container(
@@ -156,8 +155,18 @@ class _BarcodeScannerSheetState extends State<BarcodeScannerSheet> {
                   MobileScanner(
                     controller: _controller,
                     onDetect: _onDetect,
+                    errorBuilder: (context, error, child) => const Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(32),
+                        child: Text(
+                          'Câmera indisponível. Verifique a permissão nas definições ou introduza o código manualmente.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: Colors.white),
+                        ),
+                      ),
+                    ),
                   ),
-                  
+
                   // Scan area overlay
                   CustomPaint(
                     size: Size.infinite,
@@ -165,7 +174,7 @@ class _BarcodeScannerSheetState extends State<BarcodeScannerSheet> {
                       color: _scanned ? Colors.green : colorScheme.primary,
                     ),
                   ),
-                  
+
                   // Success indicator
                   if (_scanned)
                     Container(
@@ -184,7 +193,7 @@ class _BarcodeScannerSheetState extends State<BarcodeScannerSheet> {
               ),
             ),
           ),
-          
+
           // Supported formats
           const Padding(
             padding: EdgeInsets.fromLTRB(16, 0, 16, 24),
@@ -210,7 +219,7 @@ class _BarcodeScannerSheetState extends State<BarcodeScannerSheet> {
 
 class _FormatChip extends StatelessWidget {
   final String label;
-  
+
   const _FormatChip({required this.label});
 
   @override
@@ -221,17 +230,14 @@ class _FormatChip extends StatelessWidget {
         color: Theme.of(context).colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(8),
       ),
-      child: Text(
-        label,
-        style: Theme.of(context).textTheme.labelSmall,
-      ),
+      child: Text(label, style: Theme.of(context).textTheme.labelSmall),
     );
   }
 }
 
 class _ScanOverlayPainter extends CustomPainter {
   final Color color;
-  
+
   _ScanOverlayPainter({required this.color});
 
   @override
@@ -240,29 +246,61 @@ class _ScanOverlayPainter extends CustomPainter {
       ..color = color
       ..strokeWidth = 3
       ..style = PaintingStyle.stroke;
-    
+
     final cornerLength = size.width * 0.08;
     final rect = Rect.fromCenter(
       center: Offset(size.width / 2, size.height / 2),
       width: size.width * 0.7,
       height: size.height * 0.4,
     );
-    
+
     // Top-left corner
-    canvas.drawLine(rect.topLeft, rect.topLeft + Offset(cornerLength, 0), paint);
-    canvas.drawLine(rect.topLeft, rect.topLeft + Offset(0, cornerLength), paint);
-    
+    canvas.drawLine(
+      rect.topLeft,
+      rect.topLeft + Offset(cornerLength, 0),
+      paint,
+    );
+    canvas.drawLine(
+      rect.topLeft,
+      rect.topLeft + Offset(0, cornerLength),
+      paint,
+    );
+
     // Top-right corner
-    canvas.drawLine(rect.topRight, rect.topRight + Offset(-cornerLength, 0), paint);
-    canvas.drawLine(rect.topRight, rect.topRight + Offset(0, cornerLength), paint);
-    
+    canvas.drawLine(
+      rect.topRight,
+      rect.topRight + Offset(-cornerLength, 0),
+      paint,
+    );
+    canvas.drawLine(
+      rect.topRight,
+      rect.topRight + Offset(0, cornerLength),
+      paint,
+    );
+
     // Bottom-left corner
-    canvas.drawLine(rect.bottomLeft, rect.bottomLeft + Offset(cornerLength, 0), paint);
-    canvas.drawLine(rect.bottomLeft, rect.bottomLeft + Offset(0, -cornerLength), paint);
-    
+    canvas.drawLine(
+      rect.bottomLeft,
+      rect.bottomLeft + Offset(cornerLength, 0),
+      paint,
+    );
+    canvas.drawLine(
+      rect.bottomLeft,
+      rect.bottomLeft + Offset(0, -cornerLength),
+      paint,
+    );
+
     // Bottom-right corner
-    canvas.drawLine(rect.bottomRight, rect.bottomRight + Offset(-cornerLength, 0), paint);
-    canvas.drawLine(rect.bottomRight, rect.bottomRight + Offset(0, -cornerLength), paint);
+    canvas.drawLine(
+      rect.bottomRight,
+      rect.bottomRight + Offset(-cornerLength, 0),
+      paint,
+    );
+    canvas.drawLine(
+      rect.bottomRight,
+      rect.bottomRight + Offset(0, -cornerLength),
+      paint,
+    );
   }
 
   @override

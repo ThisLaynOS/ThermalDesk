@@ -1,23 +1,23 @@
+import 'package:thermal_desk/ui/widgets/thermaldesk_logo.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
-import 'package:zebra_label_pro/core/responsive.dart';
-import 'package:zebra_label_pro/models/label_job.dart';
-import 'package:zebra_label_pro/providers/history_provider.dart';
-import 'package:zebra_label_pro/providers/printer_provider.dart';
-import 'package:zebra_label_pro/providers/theme_provider.dart';
-import 'package:zebra_label_pro/ui/pages/batch_print_page.dart';
-import 'package:zebra_label_pro/ui/pages/dashboard_page.dart';
-import 'package:zebra_label_pro/ui/pages/history_page.dart';
-import 'package:zebra_label_pro/ui/pages/printers_page.dart';
-import 'package:zebra_label_pro/ui/pages/settings_page.dart';
-import 'package:zebra_label_pro/ui/pages/template_picker_page.dart';
-import 'package:zebra_label_pro/ui/widgets/modern_snackbar.dart';
-import 'package:zebra_label_pro/ui/widgets/preview_card.dart';
-import 'package:zebra_label_pro/ui/widgets/printer_form_card.dart';
-import 'package:zebra_label_pro/services/zebra_service.dart';
-
+import 'package:thermal_desk/core/responsive.dart';
+import 'package:thermal_desk/models/label_job.dart';
+import 'package:thermal_desk/providers/history_provider.dart';
+import 'package:thermal_desk/providers/printer_provider.dart';
+import 'package:thermal_desk/providers/theme_provider.dart';
+import 'package:thermal_desk/ui/pages/batch_print_page.dart';
+import 'package:thermal_desk/ui/pages/dashboard_page.dart';
+import 'package:thermal_desk/ui/pages/history_page.dart';
+import 'package:thermal_desk/ui/pages/printers_page.dart';
+import 'package:thermal_desk/ui/pages/settings_page.dart';
+import 'package:thermal_desk/ui/pages/template_picker_page.dart';
+import 'package:thermal_desk/ui/widgets/modern_snackbar.dart';
+import 'package:thermal_desk/ui/widgets/preview_card.dart';
+import 'package:thermal_desk/ui/widgets/printer_form_card.dart';
+import 'package:thermal_desk/services/thermaldesk_service.dart';
 
 class HomePage extends ConsumerStatefulWidget {
   const HomePage({super.key});
@@ -35,7 +35,7 @@ class _HomePageState extends ConsumerState<HomePage> {
   final _newPriceCtrl = TextEditingController();
   final _labelCountCtrl = TextEditingController(text: '1');
   final _expiryDateCtrl = TextEditingController();
-  LabelTemplate _template = LabelTemplate.product;
+  LabelTemplate _template = LabelTemplate.basic;
 
   @override
   void dispose() {
@@ -51,110 +51,122 @@ class _HomePageState extends ConsumerState<HomePage> {
 
   Future<void> _testConnection() async {
     final cfg = ref.read(printerConfigProvider);
-    
-    // Verificar se a impressora está configurada
-    if (cfg.ip.isEmpty) {
-      ModernSnackbar.warning(context, 'Configure o IP da impressora primeiro');
+    if (cfg.connectionError case final String message) {
+      ModernSnackbar.warning(context, message);
       return;
     }
-    
-    ref.read(connStatusProvider.notifier).state = ConnStatus.testing;
-    final result = await ref.read(zebraServiceProvider).testConnection(cfg);
-    final ok = result is ZebraSuccess;
-    ref.read(connStatusProvider.notifier).state =
-        ok ? ConnStatus.connected : ConnStatus.failed;
-    if (!mounted) return;
+    final status = ref.read(connStatusProvider.notifier);
+    if (status.state == ConnStatus.testing) return;
+    status.state = ConnStatus.testing;
+    final result = await ref
+        .read(thermalDeskServiceProvider)
+        .testConnection(cfg);
+    if (!mounted) {
+      status.state = ConnStatus.idle;
+      return;
+    }
+    if (ref.read(printerConfigProvider) != cfg) return;
+    final ok = result is ThermalDeskSuccess;
+    status.state = ok ? ConnStatus.connected : ConnStatus.failed;
     if (ok) {
       ModernSnackbar.success(context, 'Conectado com sucesso!');
     } else {
-      ModernSnackbar.error(context, 'Falha na conexão');
+      ModernSnackbar.error(context, (result as ThermalDeskFailure).message);
     }
   }
 
   Future<void> _print() async {
-    if (!_formKey.currentState!.validate()) return;
+    if (ref.read(sendingProvider) || !_formKey.currentState!.validate()) return;
     final cfg = ref.read(printerConfigProvider);
-    
-    // Verificar se a impressora está configurada
-    if (cfg.ip.isEmpty) {
-      ModernSnackbar.warning(context, 'Configure o IP da impressora primeiro');
+    if (cfg.connectionError case final String message) {
+      ModernSnackbar.warning(context, message);
       return;
     }
-    
-    final service = ref.read(zebraServiceProvider);
-    ref.read(sendingProvider.notifier).state = true;
-
-    final zpl = service.buildZpl(
-      title: _titleCtrl.text,
-      barcode: _barcodeCtrl.text,
-      subtitle: _subtitleCtrl.text,
-      template: _template,
-      cfg: cfg,
-      previousPrice: _template == LabelTemplate.promoShelf
-          || _template == LabelTemplate.promoExpiry
-        ? _previousPriceCtrl.text
-        : null,
-      newPrice: _template == LabelTemplate.promoShelf
-          || _template == LabelTemplate.promoExpiry
-        ? _newPriceCtrl.text
-        : null,
-      expiryDate: _template == LabelTemplate.promoExpiry
-        ? _expiryDateCtrl.text
-        : null,
-      copies: _template == LabelTemplate.promoShelf
-          || _template == LabelTemplate.promoExpiry
-        ? (int.tryParse(_labelCountCtrl.text.trim()) ?? 1)
-        : 1,
-    );
-
-    final result = await service.sendZpl(cfg, zpl);
-    final ok = result is ZebraSuccess;
-
-    final job = LabelJob(
-      id: const Uuid().v4(),
-      sentAt: DateTime.now(),
-      title: _titleCtrl.text,
-      barcode: _barcodeCtrl.text,
-      subtitle: _subtitleCtrl.text,
-      template: _template,
-      success: ok,
-      zpl: zpl,
-    );
-
-    await ref.read(historyProvider.notifier).add(job);
-    ref.read(sendingProvider.notifier).state = false;
-
-    if (!mounted) return;
-    if (ok) {
-      ModernSnackbar.success(context, 'Etiqueta enviada com sucesso!');
-    } else {
-      ModernSnackbar.error(context, 'Falha ao enviar etiqueta');
+    final service = ref.read(thermalDeskServiceProvider);
+    final sending = ref.read(sendingProvider.notifier);
+    final history = ref.read(historyProvider.notifier);
+    final title = _titleCtrl.text,
+        barcode = _barcodeCtrl.text,
+        subtitle = _subtitleCtrl.text;
+    final template = _template;
+    sending.state = true;
+    try {
+      final zpl = service.buildZpl(
+        title: title,
+        barcode: barcode,
+        subtitle: subtitle,
+        template: template,
+        cfg: cfg,
+        previousPrice: _previousPriceCtrl.text,
+        newPrice: _newPriceCtrl.text,
+        expiryDate: _expiryDateCtrl.text,
+        copies: int.tryParse(_labelCountCtrl.text.trim()) ?? 1,
+      );
+      final result = await service.sendZpl(cfg, zpl);
+      final ok = result is ThermalDeskSuccess;
+      var saved = true;
+      try {
+        await history.add(
+          LabelJob(
+            id: const Uuid().v4(),
+            sentAt: DateTime.now(),
+            title: title,
+            barcode: barcode,
+            subtitle: subtitle,
+            template: template,
+            success: ok,
+            zpl: zpl,
+          ),
+        );
+      } catch (_) {
+        saved = false;
+      }
+      if (!mounted) return;
+      if (ok) {
+        if (saved) {
+          ModernSnackbar.success(context, 'Etiqueta enviada com sucesso!');
+        } else {
+          ModernSnackbar.warning(
+            context,
+            'Etiqueta enviada; não foi possível guardar o histórico.',
+          );
+        }
+      } else {
+        ModernSnackbar.error(context, (result as ThermalDeskFailure).message);
+      }
+    } finally {
+      sending.state = false;
     }
   }
 
   Future<void> _copyZpl() async {
     final cfg = ref.read(printerConfigProvider);
-    final zpl = ref.read(zebraServiceProvider).buildZpl(
+    final zpl = ref
+        .read(thermalDeskServiceProvider)
+        .buildZpl(
           title: _titleCtrl.text,
           barcode: _barcodeCtrl.text,
           subtitle: _subtitleCtrl.text,
           template: _template,
           cfg: cfg,
-        previousPrice: _template == LabelTemplate.promoShelf
-            || _template == LabelTemplate.promoExpiry
-          ? _previousPriceCtrl.text
-          : null,
-        newPrice: _template == LabelTemplate.promoShelf
-            || _template == LabelTemplate.promoExpiry
-          ? _newPriceCtrl.text
-          : null,
-        expiryDate: _template == LabelTemplate.promoExpiry
-          ? _expiryDateCtrl.text
-          : null,
-        copies: _template == LabelTemplate.promoShelf
-            || _template == LabelTemplate.promoExpiry
-          ? (int.tryParse(_labelCountCtrl.text.trim()) ?? 1)
-          : 1,
+          previousPrice:
+              _template == LabelTemplate.promoShelf ||
+                  _template == LabelTemplate.promoExpiry
+              ? _previousPriceCtrl.text
+              : null,
+          newPrice:
+              _template == LabelTemplate.promoShelf ||
+                  _template == LabelTemplate.promoExpiry
+              ? _newPriceCtrl.text
+              : null,
+          expiryDate: _template == LabelTemplate.promoExpiry
+              ? _expiryDateCtrl.text
+              : null,
+          copies:
+              _template == LabelTemplate.promoShelf ||
+                  _template == LabelTemplate.promoExpiry
+              ? (int.tryParse(_labelCountCtrl.text.trim()) ?? 1)
+              : 1,
         );
     await Clipboard.setData(ClipboardData(text: zpl));
     if (!mounted) return;
@@ -172,11 +184,14 @@ class _HomePageState extends ConsumerState<HomePage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Image.asset(
-          Theme.of(context).brightness == Brightness.dark
-              ? 'assets/logow.png'
-              : 'assets/logo.png',
-          height: isMobile ? 28 : 36,
+        title: const Row(
+          children: [
+            ThermalDeskLogo(size: 36),
+            SizedBox(width: 8),
+            Flexible(
+              child: Text('ThermalDesk', overflow: TextOverflow.ellipsis),
+            ),
+          ],
         ),
         actions: [
           // Impressora atual - compacto em mobile
@@ -220,7 +235,10 @@ class _HomePageState extends ConsumerState<HomePage> {
             tooltip: 'Histórico ($historyCount)',
             icon: Badge(
               isLabelVisible: historyCount > 0,
-              label: Text('$historyCount', style: TextStyle(fontSize: isMobile ? 10 : 12)),
+              label: Text(
+                '$historyCount',
+                style: TextStyle(fontSize: isMobile ? 10 : 12),
+              ),
               child: const Icon(Icons.history),
             ),
             onPressed: () => Navigator.push(
@@ -271,9 +289,11 @@ class _HomePageState extends ConsumerState<HomePage> {
         final picked = await Navigator.push<LabelTemplate>(
           context,
           MaterialPageRoute(
-              builder: (_) => TemplatePicker(current: _template)),
+            builder: (_) =>
+                TemplatePicker(current: _template, showCustom: true),
+          ),
         );
-        if (picked != null) setState(() => _template = picked);
+        if (mounted && picked != null) setState(() => _template = picked);
       },
     );
 
@@ -313,16 +333,19 @@ class _HomePageState extends ConsumerState<HomePage> {
       padding: padding,
       child: Center(
         child: ConstrainedBox(
-          constraints: BoxConstraints(
-            maxWidth: maxWidth ?? double.infinity,
-          ),
+          constraints: BoxConstraints(maxWidth: maxWidth ?? double.infinity),
           child: content,
         ),
       ),
     );
   }
 
-  Widget _buildDrawer(BuildContext context, ColorScheme colorScheme, bool isDark, int historyCount) {
+  Widget _buildDrawer(
+    BuildContext context,
+    ColorScheme colorScheme,
+    bool isDark,
+    int historyCount,
+  ) {
     return Drawer(
       child: ListView(
         padding: EdgeInsets.zero,
@@ -332,25 +355,10 @@ class _HomePageState extends ConsumerState<HomePage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: colorScheme.primary,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: 
-                  Image.asset(
-                    Theme.of(context).brightness == Brightness.dark
-                        ? 'assets/logow.png'
-                        : 'assets/logo.png',
-                    width: 32,
-                    height: 32,
-                    color: colorScheme.onPrimary,
-                  ),
-                ),
+                const ThermalDeskLogo(size: 56),
                 const SizedBox(height: 12),
                 Text(
-                  'Zebra Label Pro',
+                  'ThermalDesk',
                   style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
@@ -361,7 +369,9 @@ class _HomePageState extends ConsumerState<HomePage> {
                   'Impressão de etiquetas ZPL',
                   style: TextStyle(
                     fontSize: 12,
-                    color: colorScheme.onPrimaryContainer.withValues(alpha: 0.7),
+                    color: colorScheme.onPrimaryContainer.withValues(
+                      alpha: 0.7,
+                    ),
                   ),
                 ),
               ],
@@ -374,11 +384,29 @@ class _HomePageState extends ConsumerState<HomePage> {
             onTap: () => Navigator.pop(context),
           ),
           ListTile(
+            leading: const Icon(Icons.design_services_outlined),
+            title: const Text('Templates e designer'),
+            onTap: () async {
+              Navigator.pop(context);
+              final picked = await Navigator.push<LabelTemplate>(
+                context,
+                MaterialPageRoute(
+                  builder: (_) =>
+                      TemplatePicker(current: _template, showCustom: true),
+                ),
+              );
+              if (mounted && picked != null) setState(() => _template = picked);
+            },
+          ),
+          ListTile(
             leading: const Icon(Icons.dashboard_outlined),
             title: const Text('Dashboard'),
             onTap: () {
               Navigator.pop(context);
-              Navigator.push(context, MaterialPageRoute(builder: (_) => const DashboardPage()));
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const DashboardPage()),
+              );
             },
           ),
           ListTile(
@@ -386,7 +414,10 @@ class _HomePageState extends ConsumerState<HomePage> {
             title: const Text('Impressão em Lote'),
             onTap: () {
               Navigator.pop(context);
-              Navigator.push(context, MaterialPageRoute(builder: (_) => const BatchPrintPage()));
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const BatchPrintPage()),
+              );
             },
           ),
           ListTile(
@@ -394,7 +425,10 @@ class _HomePageState extends ConsumerState<HomePage> {
             title: const Text('Impressoras'),
             onTap: () {
               Navigator.pop(context);
-              Navigator.push(context, MaterialPageRoute(builder: (_) => const PrintersPage()));
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const PrintersPage()),
+              );
             },
           ),
           const Divider(),
@@ -407,7 +441,10 @@ class _HomePageState extends ConsumerState<HomePage> {
             title: const Text('Histórico'),
             onTap: () {
               Navigator.pop(context);
-              Navigator.push(context, MaterialPageRoute(builder: (_) => const HistoryPage()));
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const HistoryPage()),
+              );
             },
           ),
           ListTile(
@@ -415,7 +452,10 @@ class _HomePageState extends ConsumerState<HomePage> {
             title: const Text('Configurações'),
             onTap: () {
               Navigator.pop(context);
-              Navigator.push(context, MaterialPageRoute(builder: (_) => const SettingsPage()));
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const SettingsPage()),
+              );
             },
           ),
           const Divider(),
@@ -431,7 +471,7 @@ class _HomePageState extends ConsumerState<HomePage> {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Text(
-              'v2.1.0 • ZPL II \nFeito com ❤️ por LaynOS',
+              'ThermalDesk v2.1.0 • ZPL II | Feito com ❤️ por LaynOS',
               style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
             ),
           ),

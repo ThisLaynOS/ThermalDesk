@@ -1,17 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:zebra_label_pro/core/theme.dart';
-import 'package:zebra_label_pro/providers/theme_provider.dart';
-import 'package:zebra_label_pro/ui/home_page.dart';
+import 'package:thermal_desk/core/theme.dart';
+import 'package:thermal_desk/providers/theme_provider.dart';
+import 'package:thermal_desk/ui/home_page.dart';
 
-class ZebraLabelApp extends ConsumerWidget {
-  const ZebraLabelApp({super.key});
+class ThermalDeskApp extends ConsumerWidget {
+  const ThermalDeskApp({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final isDark = ref.watch(themeModeProvider);
     return MaterialApp(
-      title: 'Zebra Label Pro',
+      title: 'ThermalDesk',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light(),
       darkTheme: AppTheme.dark(),

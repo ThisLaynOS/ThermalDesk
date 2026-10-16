@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
-import 'package:zebra_label_pro/core/constants.dart';
-import 'package:zebra_label_pro/core/responsive.dart';
-import 'package:zebra_label_pro/models/printer_config.dart';
-import 'package:zebra_label_pro/providers/printer_provider.dart';
-import 'package:zebra_label_pro/services/zebra_service.dart';
-import 'package:zebra_label_pro/ui/widgets/modern_snackbar.dart';
+import 'package:thermal_desk/core/constants.dart';
+import 'package:thermal_desk/core/responsive.dart';
+import 'package:thermal_desk/models/printer_config.dart';
+import 'package:thermal_desk/providers/printer_provider.dart';
+import 'package:thermal_desk/services/thermaldesk_service.dart';
+import 'package:thermal_desk/ui/widgets/modern_snackbar.dart';
 
 class PrintersPage extends ConsumerWidget {
   const PrintersPage({super.key});
@@ -36,7 +36,11 @@ class PrintersPage extends ConsumerWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.print_disabled, size: isMobile ? 48 : 64, color: Colors.grey.shade400),
+                  Icon(
+                    Icons.print_disabled,
+                    size: isMobile ? 48 : 64,
+                    color: Colors.grey.shade400,
+                  ),
                   const SizedBox(height: 16),
                   const Text('Nenhuma impressora salva'),
                   const SizedBox(height: 16),
@@ -49,8 +53,22 @@ class PrintersPage extends ConsumerWidget {
               ),
             )
           : isDesktop
-              ? _buildGridView(context, ref, printers, currentPrinter, colorScheme, padding)
-              : _buildListView(context, ref, printers, currentPrinter, colorScheme, padding),
+          ? _buildGridView(
+              context,
+              ref,
+              printers,
+              currentPrinter,
+              colorScheme,
+              padding,
+            )
+          : _buildListView(
+              context,
+              ref,
+              printers,
+              currentPrinter,
+              colorScheme,
+              padding,
+            ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _showPrinterDialog(context, ref, null),
         icon: const Icon(Icons.add),
@@ -78,7 +96,12 @@ class PrintersPage extends ConsumerWidget {
       ),
       itemCount: printers.length,
       itemBuilder: (context, index) => _buildPrinterCard(
-        context, ref, printers[index], currentPrinter, colorScheme, printers,
+        context,
+        ref,
+        printers[index],
+        currentPrinter,
+        colorScheme,
+        printers,
       ),
     );
   }
@@ -97,7 +120,12 @@ class PrintersPage extends ConsumerWidget {
       itemBuilder: (context, index) => Padding(
         padding: const EdgeInsets.only(bottom: 12),
         child: _buildPrinterCard(
-          context, ref, printers[index], currentPrinter, colorScheme, printers,
+          context,
+          ref,
+          printers[index],
+          currentPrinter,
+          colorScheme,
+          printers,
         ),
       ),
     );
@@ -200,7 +228,9 @@ class PrintersPage extends ConsumerWidget {
                       style: TextStyle(
                         fontSize: isMobile ? 11 : 13,
                         color: isSelected
-                            ? colorScheme.onPrimaryContainer.withValues(alpha: 0.7)
+                            ? colorScheme.onPrimaryContainer.withValues(
+                                alpha: 0.7,
+                              )
                             : Colors.grey.shade600,
                       ),
                     ),
@@ -209,7 +239,9 @@ class PrintersPage extends ConsumerWidget {
                       style: TextStyle(
                         fontSize: isMobile ? 10 : 12,
                         color: isSelected
-                            ? colorScheme.onPrimaryContainer.withValues(alpha: 0.6)
+                            ? colorScheme.onPrimaryContainer.withValues(
+                                alpha: 0.6,
+                              )
                             : Colors.grey.shade500,
                       ),
                       overflow: TextOverflow.ellipsis,
@@ -228,7 +260,9 @@ class PrintersPage extends ConsumerWidget {
                       _testConnection(context, ref, printer);
                       break;
                     case 'default':
-                      ref.read(savedPrintersProvider.notifier).setDefault(printer.id);
+                      ref
+                          .read(savedPrintersProvider.notifier)
+                          .setDefault(printer.id);
                       break;
                     case 'delete':
                       _confirmDelete(context, ref, printer);
@@ -267,7 +301,10 @@ class PrintersPage extends ConsumerWidget {
                       child: ListTile(
                         dense: true,
                         leading: Icon(Icons.delete_outline, color: Colors.red),
-                        title: Text('Remover', style: TextStyle(color: Colors.red)),
+                        title: Text(
+                          'Remover',
+                          style: TextStyle(color: Colors.red),
+                        ),
                       ),
                     ),
                 ],
@@ -279,79 +316,115 @@ class PrintersPage extends ConsumerWidget {
     );
   }
 
-  void _showPrinterDialog(BuildContext context, WidgetRef ref, PrinterConfig? printer) {
+  Future<void> _showPrinterDialog(
+    BuildContext context,
+    WidgetRef ref,
+    PrinterConfig? printer,
+  ) async {
+    final formKey = GlobalKey<FormState>();
+    var saving = false;
     final isEdit = printer != null;
     final nameCtrl = TextEditingController(text: printer?.name ?? '');
     final ipCtrl = TextEditingController(text: printer?.ip ?? '');
-    final portCtrl = TextEditingController(text: (printer?.port ?? 9100).toString());
+    final portCtrl = TextEditingController(
+      text: (printer?.port ?? 9100).toString(),
+    );
     var dpi = printer?.dpi ?? 203;
-    var labelSize = printer?.labelSize ?? '30x100mm (203dpi S4M)';
+    var labelSize = AppConstants.labelSizeForDpi(
+      printer?.labelSize ?? PrinterConfig.defaults.labelSize,
+      dpi,
+    );
 
-    showDialog(
+    await showDialog(
       context: context,
       builder: (ctx) {
         return StatefulBuilder(
           builder: (context, setState) {
             return AlertDialog(
               title: Text(isEdit ? 'Editar Impressora' : 'Nova Impressora'),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    TextField(
-                      controller: nameCtrl,
-                      decoration: const InputDecoration(
-                        labelText: 'Nome da impressora',
-                        hintText: 'Ex: Zebra Escritório',
-                        prefixIcon: Icon(Icons.label_outline),
+              content: Form(
+                key: formKey,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      TextFormField(
+                        controller: nameCtrl,
+                        decoration: const InputDecoration(
+                          labelText: 'Nome da impressora',
+                          hintText: 'Ex: ThermalDesk Escritório',
+                          prefixIcon: Icon(Icons.label_outline),
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 16),
-                    TextField(
-                      controller: ipCtrl,
-                      decoration: const InputDecoration(
-                        labelText: 'Endereço IP',
-                        hintText: '192.168.1.100',
-                        prefixIcon: Icon(Icons.router_outlined),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: ipCtrl,
+                        validator: PrinterConfig.validateIp,
+                        decoration: const InputDecoration(
+                          labelText: 'Endereço IP',
+                          hintText: 'Introduza o IP da impressora',
+                          prefixIcon: Icon(Icons.router_outlined),
+                        ),
+                        keyboardType: TextInputType.url,
                       ),
-                      keyboardType: TextInputType.url,
-                    ),
-                    const SizedBox(height: 16),
-                    TextField(
-                      controller: portCtrl,
-                      decoration: const InputDecoration(
-                        labelText: 'Porta TCP',
-                        hintText: '9100',
-                        prefixIcon: Icon(Icons.settings_ethernet),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: portCtrl,
+                        validator: PrinterConfig.validatePort,
+                        decoration: const InputDecoration(
+                          labelText: 'Porta TCP',
+                          hintText: '9100',
+                          prefixIcon: Icon(Icons.settings_ethernet),
+                        ),
+                        keyboardType: TextInputType.number,
                       ),
-                      keyboardType: TextInputType.number,
-                    ),
-                    const SizedBox(height: 16),
-                    const Text('DPI', style: TextStyle(fontWeight: FontWeight.w600)),
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 8,
-                      children: [203, 200, 300].map((d) {
-                        return ChoiceChip(
-                          label: Text(d == 203 ? '203 (S4M)' : '$d'),
-                          selected: dpi == d,
-                          onSelected: (_) => setState(() => dpi = d),
-                        );
-                      }).toList(),
-                    ),
-                    const SizedBox(height: 16),
-                    DropdownButtonFormField<String>(
-                      initialValue: labelSize,
-                      decoration: const InputDecoration(
-                        labelText: 'Tamanho da etiqueta',
-                        prefixIcon: Icon(Icons.straighten),
+                      const SizedBox(height: 16),
+                      const Text(
+                        'DPI',
+                        style: TextStyle(fontWeight: FontWeight.w600),
                       ),
-                      items: AppConstants.labelSizes.keys.map((key) {
-                        return DropdownMenuItem(value: key, child: Text(key, style: const TextStyle(fontSize: 13)));
-                      }).toList(),
-                      onChanged: (v) => setState(() => labelSize = v!),
-                    ),
-                  ],
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        children: [203, 200, 300].map((d) {
+                          return ChoiceChip(
+                            label: Text(d == 203 ? '203 (S4M)' : '$d'),
+                            selected: dpi == d,
+                            onSelected: (_) => setState(() {
+                              dpi = d;
+                              labelSize = AppConstants.labelSizeForDpi(
+                                labelSize,
+                                d,
+                              );
+                            }),
+                          );
+                        }).toList(),
+                      ),
+                      const SizedBox(height: 16),
+                      DropdownButtonFormField<String>(
+                        key: ValueKey(labelSize),
+                        isExpanded: true,
+                        initialValue: labelSize,
+                        decoration: const InputDecoration(
+                          labelText: 'Tamanho da etiqueta',
+                          prefixIcon: Icon(Icons.straighten),
+                        ),
+                        items: AppConstants.labelSizes.keys.map((key) {
+                          return DropdownMenuItem(
+                            value: key,
+                            child: Text(
+                              key,
+                              style: const TextStyle(fontSize: 13),
+                            ),
+                          );
+                        }).toList(),
+                        onChanged: (v) => setState(() {
+                          labelSize = v!;
+                          dpi = AppConstants.labelSizes[v]!.dpi;
+                        }),
+                      ),
+                    ],
+                  ),
                 ),
               ),
               actions: [
@@ -360,28 +433,50 @@ class PrintersPage extends ConsumerWidget {
                   child: const Text('Cancelar'),
                 ),
                 FilledButton(
-                  onPressed: () {
-                    final config = PrinterConfig(
-                      id: printer?.id ?? const Uuid().v4(),
-                      name: nameCtrl.text.isEmpty ? 'Impressora' : nameCtrl.text,
-                      ip: ipCtrl.text,
-                      port: int.tryParse(portCtrl.text) ?? 9100,
-                      dpi: dpi,
-                      labelSize: labelSize,
-                      isDefault: printer?.isDefault ?? false,
-                    );
+                  onPressed: saving
+                      ? null
+                      : () async {
+                          if (!formKey.currentState!.validate()) return;
+                          final config = PrinterConfig(
+                            id: printer?.id ?? const Uuid().v4(),
+                            name: nameCtrl.text.trim().isEmpty
+                                ? 'Impressora'
+                                : nameCtrl.text.trim(),
+                            ip: ipCtrl.text.trim(),
+                            port: int.parse(portCtrl.text.trim()),
+                            dpi: dpi,
+                            labelSize: labelSize,
+                            isDefault: printer?.isDefault ?? false,
+                          );
 
-                    if (isEdit) {
-                      ref.read(savedPrintersProvider.notifier).update(config);
-                      // Se estiver editando a impressora atual, atualizar
-                      if (ref.read(printerConfigProvider).id == config.id) {
-                        ref.read(printerConfigProvider.notifier).save(config);
-                      }
-                    } else {
-                      ref.read(savedPrintersProvider.notifier).add(config);
-                    }
-                    Navigator.pop(ctx);
-                  },
+                          final saved = ref.read(
+                            savedPrintersProvider.notifier,
+                          );
+                          final selected = ref.read(
+                            printerConfigProvider.notifier,
+                          );
+                          final isSelected =
+                              ref.read(printerConfigProvider).id == config.id;
+                          setState(() => saving = true);
+                          try {
+                            if (isEdit) {
+                              await saved.update(config);
+                              if (isSelected) await selected.save(config);
+                            } else {
+                              await saved.add(config);
+                            }
+                            if (ctx.mounted) Navigator.pop(ctx);
+                          } catch (_) {
+                            if (ctx.mounted) {
+                              ModernSnackbar.error(
+                                ctx,
+                                'Não foi possível guardar a impressora.',
+                              );
+                            }
+                          } finally {
+                            if (ctx.mounted) setState(() => saving = false);
+                          }
+                        },
                   child: Text(isEdit ? 'Salvar' : 'Adicionar'),
                 ),
               ],
@@ -390,11 +485,18 @@ class PrintersPage extends ConsumerWidget {
         );
       },
     );
+    nameCtrl.dispose();
+    ipCtrl.dispose();
+    portCtrl.dispose();
   }
 
-  void _testConnection(BuildContext context, WidgetRef ref, PrinterConfig printer) async {
-    final service = ref.read(zebraServiceProvider);
-    
+  void _testConnection(
+    BuildContext context,
+    WidgetRef ref,
+    PrinterConfig printer,
+  ) async {
+    final service = ref.read(thermalDeskServiceProvider);
+
     ModernSnackbar.show(
       context,
       message: 'Testando conexão com ${printer.name}...',
@@ -403,7 +505,7 @@ class PrintersPage extends ConsumerWidget {
     );
 
     final result = await service.testConnection(printer);
-    final ok = result is ZebraSuccess;
+    final ok = result is ThermalDeskSuccess;
 
     if (!context.mounted) return;
     if (ok) {
@@ -413,7 +515,11 @@ class PrintersPage extends ConsumerWidget {
     }
   }
 
-  void _confirmDelete(BuildContext context, WidgetRef ref, PrinterConfig printer) {
+  void _confirmDelete(
+    BuildContext context,
+    WidgetRef ref,
+    PrinterConfig printer,
+  ) {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(

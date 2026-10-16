@@ -1,12 +1,25 @@
 import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
-import 'package:zebra_label_pro/ui/widgets/modern_snackbar.dart';
+import 'package:thermal_desk/ui/widgets/modern_snackbar.dart';
 
 /// Utilitário para exportar arquivos ZPL
 class ZplExporter {
-  static final _dateFormat = DateFormat('yyyyMMdd_HHmmss');
+  static final _dateFormat = DateFormat('yyyyMMdd_HHmmss_SSS');
+
+  static String safeFilename(String value) {
+    var name = value
+        .replaceAll('\\', '/')
+        .split('/')
+        .last
+        .replaceAll(RegExp(r'[<>:"/\\|?*\x00-\x1f]'), '_')
+        .trim();
+    if (name.isEmpty || name == '.' || name == '..') name = 'etiqueta';
+    if (!name.toLowerCase().endsWith('.zpl')) name = '$name.zpl';
+    return name;
+  }
 
   /// Copia ZPL para área de transferência
   static Future<void> copyToClipboard(BuildContext context, String zpl) async {
@@ -29,15 +42,16 @@ class ZplExporter {
     try {
       // Gerar nome de arquivo
       final timestamp = _dateFormat.format(DateTime.now());
-      final name = filename ?? 'etiqueta_$timestamp.zpl';
+      final name = safeFilename(filename ?? 'etiqueta_$timestamp.zpl');
 
       // No Windows/Desktop, salvar em Documents
       if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
-        final home = Platform.environment['USERPROFILE'] ?? 
-                     Platform.environment['HOME'] ?? 
-                     '.';
-        final documentsPath = '$home/Documents/ZebraLabels';
-        
+        final home =
+            Platform.environment['USERPROFILE'] ??
+            Platform.environment['HOME'] ??
+            '.';
+        final documentsPath = '$home/Documents/ThermalDesk';
+
         // Criar pasta se não existir
         final dir = Directory(documentsPath);
         if (!await dir.exists()) {
@@ -49,10 +63,7 @@ class ZplExporter {
         await file.writeAsString(zpl);
 
         if (context.mounted) {
-          ModernSnackbar.success(
-            context,
-            'Salvo em: $documentsPath/$name',
-          );
+          ModernSnackbar.success(context, 'Salvo em: $documentsPath/$name');
         }
       } else {
         // Mobile: apenas copiar
@@ -79,16 +90,6 @@ class ZplExporter {
       filename: filename ?? 'lote_$timestamp.zpl',
     );
   }
-
-  static void _openFolder(String path) {
-    if (Platform.isWindows) {
-      Process.run('explorer', [path]);
-    } else if (Platform.isMacOS) {
-      Process.run('open', [path]);
-    } else if (Platform.isLinux) {
-      Process.run('xdg-open', [path]);
-    }
-  }
 }
 
 /// Dialog para mostrar e exportar ZPL
@@ -96,11 +97,7 @@ class ZplViewerDialog extends StatelessWidget {
   final String zpl;
   final String? title;
 
-  const ZplViewerDialog({
-    super.key,
-    required this.zpl,
-    this.title,
-  });
+  const ZplViewerDialog({super.key, required this.zpl, this.title});
 
   static Future<void> show(BuildContext context, String zpl, {String? title}) {
     return showDialog(
@@ -152,20 +149,20 @@ class ZplViewerDialog extends StatelessWidget {
               children: [
                 Text(
                   '${zpl.length} caracteres',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey.shade600,
-                  ),
+                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
                 ),
                 Row(
                   children: [
                     OutlinedButton.icon(
                       icon: const Icon(Icons.copy, size: 18),
                       label: const Text('Copiar'),
-                      onPressed: () => ZplExporter.copyToClipboard(context, zpl),
+                      onPressed: () =>
+                          ZplExporter.copyToClipboard(context, zpl),
                     ),
                     const SizedBox(width: 8),
-                    if (Platform.isWindows || Platform.isLinux || Platform.isMacOS)
+                    if (Platform.isWindows ||
+                        Platform.isLinux ||
+                        Platform.isMacOS)
                       FilledButton.icon(
                         icon: const Icon(Icons.save_alt, size: 18),
                         label: const Text('Salvar'),

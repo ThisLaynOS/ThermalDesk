@@ -65,12 +65,7 @@ class Responsive {
 
   /// Espaçamento entre cards
   static double cardSpacing(BuildContext context) {
-    return value(
-      context: context,
-      mobile: 12.0,
-      tablet: 16.0,
-      desktop: 20.0,
-    );
+    return value(context: context, mobile: 12.0, tablet: 16.0, desktop: 20.0);
   }
 
   /// Número de colunas para grid
@@ -167,10 +162,7 @@ class ResponsiveContainer extends StatelessWidget {
         constraints: BoxConstraints(
           maxWidth: effectiveMaxWidth ?? double.infinity,
         ),
-        child: Padding(
-          padding: effectivePadding,
-          child: child,
-        ),
+        child: Padding(padding: effectivePadding, child: child),
       ),
     );
   }
@@ -212,9 +204,13 @@ class ResponsiveRowColumn extends StatelessWidget {
     );
   }
 
-  List<Widget> _addSpacing(List<Widget> widgets, double spacing, {required bool horizontal}) {
+  List<Widget> _addSpacing(
+    List<Widget> widgets,
+    double spacing, {
+    required bool horizontal,
+  }) {
     if (widgets.isEmpty) return widgets;
-    
+
     final result = <Widget>[];
     for (var i = 0; i < widgets.length; i++) {
       if (horizontal) {
@@ -223,10 +219,12 @@ class ResponsiveRowColumn extends StatelessWidget {
         result.add(widgets[i]);
       }
       if (i < widgets.length - 1) {
-        result.add(SizedBox(
-          width: horizontal ? spacing : null,
-          height: horizontal ? null : spacing,
-        ));
+        result.add(
+          SizedBox(
+            width: horizontal ? spacing : null,
+            height: horizontal ? null : spacing,
+          ),
+        );
       }
     }
     return result;
@@ -251,11 +249,12 @@ class ResponsiveGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cols = columns ?? Responsive.gridColumns(context);
-    
+
     return LayoutBuilder(
       builder: (context, constraints) {
-        final itemWidth = (constraints.maxWidth - (spacing * (cols - 1))) / cols;
-        
+        final itemWidth =
+            (constraints.maxWidth - (spacing * (cols - 1))) / cols;
+
         return Wrap(
           spacing: spacing,
           runSpacing: runSpacing,

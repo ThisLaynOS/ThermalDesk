@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
-import 'package:zebra_label_pro/models/label_job.dart';
-import 'package:zebra_label_pro/providers/history_provider.dart';
-import 'package:zebra_label_pro/ui/widgets/modern_snackbar.dart';
+import 'package:thermal_desk/models/label_job.dart';
+import 'package:thermal_desk/providers/history_provider.dart';
+import 'package:thermal_desk/ui/widgets/modern_snackbar.dart';
 
 class HistoryTile extends ConsumerWidget {
   final LabelJob job;
@@ -13,11 +13,7 @@ class HistoryTile extends ConsumerWidget {
   /// [compact] = false → versão completa para usar na HistoryPage
   final bool compact;
 
-  const HistoryTile({
-    super.key,
-    required this.job,
-    this.compact = false,
-  });
+  const HistoryTile({super.key, required this.job, this.compact = false});
 
   static final _fmt = DateFormat('dd/MM/yyyy HH:mm');
   static final _fmtCompact = DateFormat('dd/MM HH:mm');
@@ -54,7 +50,7 @@ class HistoryTile extends ConsumerWidget {
       ),
     );
 
-    if (confirm == true) {
+    if (confirm == true && context.mounted) {
       ref.read(historyProvider.notifier).remove(job.id);
     }
   }
@@ -128,7 +124,10 @@ class HistoryTile extends ConsumerWidget {
             const SizedBox(height: 2),
             Row(
               children: [
-                _Tag(label: job.template.displayName, color: colorScheme.primaryContainer),
+                _Tag(
+                  label: job.template.displayName,
+                  color: colorScheme.primaryContainer,
+                ),
                 const SizedBox(width: 6),
                 _Tag(
                   label: job.success ? 'Sucesso' : 'Falha',
@@ -195,7 +194,10 @@ class _Tag extends StatelessWidget {
         color: color,
         borderRadius: BorderRadius.circular(4),
       ),
-      child: Text(label, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600)),
+      child: Text(
+        label,
+        style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600),
+      ),
     );
   }
 }

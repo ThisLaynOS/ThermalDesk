@@ -20,7 +20,25 @@ abstract class AppConstants {
     '100x50mm (300dpi)': (w: 1200, h: 600, dpi: 300),
     '102x152mm (203dpi S4M)': (w: 827, h: 1234, dpi: 203),
     '102x152mm (200dpi)': (w: 816, h: 1218, dpi: 200),
+    '102x152mm (300dpi)': (w: 1224, h: 1824, dpi: 300),
   };
 
-  static const barcodeTypes = ['Code128', 'EAN13', 'QRCode', 'Code39', 'DataMatrix'];
+  static String labelSizeForDpi(String current, int dpi) {
+    final dimensions = current.split(' ').first;
+    return labelSizes.entries
+        .firstWhere(
+          (e) => e.key.startsWith('$dimensions ') && e.value.dpi == dpi,
+          orElse: () =>
+              labelSizes.entries.firstWhere((e) => e.value.dpi == dpi),
+        )
+        .key;
+  }
+
+  static const barcodeTypes = [
+    'Code128',
+    'EAN13',
+    'QRCode',
+    'Code39',
+    'DataMatrix',
+  ];
 }
