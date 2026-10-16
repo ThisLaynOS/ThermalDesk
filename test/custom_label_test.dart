@@ -170,16 +170,13 @@ void main() {
   test(
     'Catálogo padrão remove modelos pedidos sem alterar índices do histórico',
     () {
-      expect(LabelTemplate.standard, isNot(contains(LabelTemplate.product)));
       expect(LabelTemplate.standard, isNot(contains(LabelTemplate.priceTag)));
-      expect(LabelTemplate.standard, isNot(contains(LabelTemplate.promoShelf)));
-      expect(
-        LabelTemplate.standard,
-        isNot(contains(LabelTemplate.promoExpiry)),
-      );
       expect(LabelTemplate.standard, isNot(contains(LabelTemplate.custom)));
-      expect(LabelTemplate.promoExpiry.index, 9);
-      expect(LabelTemplate.custom.index, 10);
+      expect(LabelTemplate.address.storageId, 2);
+      expect(LabelTemplate.custom.storageId, 10);
+      expect(LabelTemplate.fromStorage(1), LabelTemplate.basic);
+      expect(LabelTemplate.fromStorage(8), LabelTemplate.basic);
+      expect(LabelTemplate.fromStorage(9), LabelTemplate.basic);
     },
   );
 

@@ -36,7 +36,7 @@ void main() {
       SharedPreferences.setMockInitialValues({});
       final service = ControlledPreview();
       addTearDown(service.close);
-      final controllers = List.generate(7, (_) => TextEditingController());
+      final controllers = List.generate(3, (_) => TextEditingController());
       addTearDown(() {
         for (final c in controllers) {
           c.dispose();
@@ -55,10 +55,6 @@ void main() {
                 titleCtrl: controllers[0],
                 barcodeCtrl: controllers[1],
                 subtitleCtrl: controllers[2],
-                previousPriceCtrl: controllers[3],
-                newPriceCtrl: controllers[4],
-                labelCountCtrl: controllers[5],
-                expiryDateCtrl: controllers[6],
                 template: template,
                 onCopyZpl: () {},
               ),
@@ -66,7 +62,7 @@ void main() {
           ),
         ),
       );
-      await tester.pumpWidget(screen(LabelTemplate.product));
+      await tester.pumpWidget(screen(LabelTemplate.basic));
       await tester.pumpAndSettle();
       expect(service.requests, isEmpty);
       controllers[0].text = 'Produto Exemplo';

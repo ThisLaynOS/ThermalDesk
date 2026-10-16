@@ -19,9 +19,9 @@ cada edição, armazenamento de modelos e troca de arquivos entre instalações.
   incluindo cópias. Outros aplicativos precisam aceitar ZPL II.
 - O envio usa o serviço RAW TCP existente, o bloqueio compartilhado de impressão
   e o histórico. A quantidade aceita é de 1 a 1000 cópias.
-- Produto, Preço, Oferta Gôndola e Oferta Vencimento deixam de aparecer nos
-  seletores padrão, inclusive no lote. Seus índices e geradores antigos foram
-  mantidos para compatibilidade; o novo tipo Personalizado foi acrescentado ao fim.
+- Produto, Oferta Gôndola e Oferta Vencimento foram removidos, inclusive o ZPL.
+  Preço continua fora dos seletores. Os índices antigos desses modelos caem em
+  Básico ao ler o histórico; o tipo Personalizado conserva o índice 10.
 
 ## Persistência e entrada de arquivos
 

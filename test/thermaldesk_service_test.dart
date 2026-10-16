@@ -46,12 +46,11 @@ void main() {
       template: template,
       cfg: config,
     );
-    expect(build(LabelTemplate.product), contains('^BCN'));
-    expect(build(LabelTemplate.product), contains('0000000000000'));
-    expect(build(LabelTemplate.product), contains('^FB'));
+    expect(build(LabelTemplate.basic), contains('^BCN'));
+    expect(build(LabelTemplate.basic), contains('0000000000000'));
+    expect(build(LabelTemplate.inventory), contains('^FB'));
     expect(build(LabelTemplate.qrCode), contains('https://exemplo.local'));
     expect(build(LabelTemplate.priceTag), contains(r'R$ 0,00'));
-    expect(build(LabelTemplate.promoShelf), contains(r'Por R$ 0,00'));
   });
 
   test('Tamanho e resolução são aplicados ao ZPL de todos os templates', () {
@@ -80,7 +79,7 @@ void main() {
       title: 'Item Genérico',
       barcode: 'ABC^XZ~JA',
       subtitle: '',
-      template: LabelTemplate.product,
+      template: LabelTemplate.basic,
       cfg: config,
     );
     expect(RegExp(r'\^XZ').allMatches(zpl).length, 1);
@@ -144,11 +143,7 @@ void main() {
                 LabelValidation.barcode(
                   data,
                   qr: false,
-                  availableDots: profile.availableBarcodeDots(
-                    promotional:
-                        template == LabelTemplate.promoShelf ||
-                        template == LabelTemplate.promoExpiry,
-                  ),
+                  availableDots: profile.availableBarcodeDots,
                 ),
                 isNotNull,
               );

@@ -42,14 +42,9 @@ class LabelProfile {
         .toDouble();
   }
 
-  double availableBarcodeDots({bool promotional = false}) {
-    final scale = math.min(
-      width / (promotional ? 240 : 400),
-      height / (promotional ? 800 : 240),
-    );
-    return promotional
-        ? height - (357 * scale).round() - 8.0
-        : width - (20 * scale).round() - 8.0;
+  double get availableBarcodeDots {
+    final scale = math.min(width / 400, height / 240);
+    return width - (20 * scale).round() - 8.0;
   }
 
   // A API suporta 8 e 12 dpmm; as dimensões em inches preservam os dots.

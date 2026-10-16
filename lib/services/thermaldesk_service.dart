@@ -90,10 +90,6 @@ class ThermalDeskService {
     required String subtitle,
     required LabelTemplate template,
     required PrinterConfig cfg,
-    String? previousPrice,
-    String? newPrice,
-    String? expiryDate,
-    int copies = 1,
   }) {
     final safeTitle = _sanitize(title);
     final safeSubtitle = _sanitize(subtitle);
@@ -102,26 +98,11 @@ class ThermalDeskService {
               ? 'https://exemplo.local'
               : '0000000000000')
         : _sanitize(barcode);
-    final safePreviousPrice = _price(previousPrice ?? '').isEmpty
-        ? '0,00'
-        : _price(previousPrice ?? '');
-    final safeNewPrice = _price(newPrice ?? '').isEmpty
-        ? '0,00'
-        : _price(newPrice ?? '');
-    final safeExpiryDate = _sanitize(expiryDate ?? '').isEmpty
-        ? ''
-        : _sanitize(expiryDate ?? '');
-    final safeCopies = copies < 1 ? 1 : copies;
 
     final zpl = switch (template) {
       LabelTemplate.basic => _buildBasic(safeTitle, safeBarcode),
       LabelTemplate.custom => throw ArgumentError(
         'Use o modelo personalizado para gerar ZPL.',
-      ),
-      LabelTemplate.product => _buildProduct(
-        safeTitle,
-        safeBarcode,
-        safeSubtitle,
       ),
       LabelTemplate.address => _buildAddress(safeTitle, safeSubtitle),
       LabelTemplate.shipping => _buildShipping(
@@ -145,41 +126,13 @@ class ThermalDeskService {
         safeSubtitle,
       ),
       LabelTemplate.cable => _buildCable(safeTitle, safeBarcode),
-      LabelTemplate.promoShelf => _buildPromoShelf(
-        safeTitle,
-        safeBarcode,
-        safePreviousPrice,
-        safeNewPrice,
-        safeCopies,
-      ),
-      LabelTemplate.promoExpiry => _buildPromoExpiry(
-        safeTitle,
-        safeBarcode,
-        safePreviousPrice,
-        safeNewPrice,
-        safeExpiryDate,
-        safeCopies,
-      ),
     };
-    return _applyProfile(
-      zpl,
-      cfg,
-      promotional:
-          template == LabelTemplate.promoShelf ||
-          template == LabelTemplate.promoExpiry,
-    );
+    return _applyProfile(zpl, cfg);
   }
 
-  String _applyProfile(
-    String zpl,
-    PrinterConfig cfg, {
-    required bool promotional,
-  }) {
+  String _applyProfile(String zpl, PrinterConfig cfg) {
     final profile = LabelProfile.fromConfig(cfg);
-    final scale = math.min(
-      profile.width / (promotional ? 240 : 400),
-      profile.height / (promotional ? 800 : 240),
-    );
+    final scale = math.min(profile.width / 400, profile.height / 240);
     int dot(String? value) =>
         math.max(1, ((int.tryParse(value ?? '') ?? 0) * scale).round());
     var output = zpl.replaceAll(RegExp(r'\^PW\d+|\^LL\d+'), '');
@@ -281,17 +234,6 @@ class ThermalDeskService {
 ^XZ'''
           .trim();
 
-  String _buildProduct(String title, String barcode, String subtitle) =>
-      '''
-^XA
-^MNY
-^CI28
-^FO20,12^A0N,30,30^FB360,2,,L^FD$title^FS
-^FO20,58^A0N,22,22^FD$subtitle^FS
-^FO20,90^BCN,80,Y,N,N^FD$barcode^FS
-^XZ'''
-          .trim();
-
   String _buildAddress(String name, String address) =>
       '''
 ^XA
@@ -374,59 +316,6 @@ class ThermalDeskService {
 ^FO10,70^GB380,2,2^FS
 ^FO15,85^A0N,24,24^FB370,1,,C^FD$label^FS
 ^FO15,120^A0N,18,18^FB370,1,,C^FD$code^FS
-^XZ'''
-          .trim();
-
-  String _buildPromoShelf(
-    String product,
-    String barcode,
-    String previousPrice,
-    String newPrice,
-    int copies,
-  ) =>
-      '''
-^XA
-^CI28
-^PW240
-^LL800
-^LH0,0
-^LS0
-^FWN
-^FO110,40^A0R,28,28^FB600,2,0,L^FD$product^FS
-^FO140,280^A0R,28,28^FB600,2,0,L^FDEAN: $barcode^FS
-^FO18,40^A0R,60,60^FB600,1,0,L^FDDe R\$ $previousPrice^FS
-^FO105,357^BY3,2,85^BCR,70,N,N,N^FD$barcode^FS
-^FO5,340^GB100,400,100,B,0^FS
-^FO15,369^A0R,60,60^FR^FDPor R\$ $newPrice^FS
-^PQ$copies,0,1,N
-^XZ'''
-          .trim();
-
-  String _buildPromoExpiry(
-    String product,
-    String barcode,
-    String previousPrice,
-    String newPrice,
-    String expiryDate,
-    int copies,
-  ) =>
-      '''
-^XA
-^CI28
-^PW240
-^LL800
-^LH0,0
-^LS0
-^FWN
-^FO110,40^A0R,28,28^FB600,2,0,L^FD$product^FS
-^FO90,40^A0R,22,22^FB600,2,0,L^FDPROXIMO AO VENCIMENTO:^FS
-^FO65,40^A0R,22,22^FB600,2,0,L^FD$expiryDate^FS
-^FO140,280^A0R,28,28^FB600,2,0,L^FD$barcode^FS
-^FO18,40^A0R,60,60^FB600,1,0,L^FDDe R\$ $previousPrice^FS
-^FO105,357^BY3,2,85^BCR,17,N,N,N^FD$barcode^FS
-^FO5,340^GB100,400,100,B,0^FS
-^FO15,369^A0R,60,60^FR^FDPor R\$ $newPrice^FS
-^PQ$copies,0,1,N
 ^XZ'''
           .trim();
 }

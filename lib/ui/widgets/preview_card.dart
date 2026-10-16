@@ -21,10 +21,6 @@ import 'package:thermal_desk/ui/widgets/zpl_local_preview.dart';
 
 class PreviewCard extends ConsumerStatefulWidget {
   final TextEditingController titleCtrl, barcodeCtrl, subtitleCtrl;
-  final TextEditingController previousPriceCtrl,
-      newPriceCtrl,
-      labelCountCtrl,
-      expiryDateCtrl;
   final LabelTemplate template;
   final VoidCallback onCopyZpl;
 
@@ -33,10 +29,6 @@ class PreviewCard extends ConsumerStatefulWidget {
     required this.titleCtrl,
     required this.barcodeCtrl,
     required this.subtitleCtrl,
-    required this.previousPriceCtrl,
-    required this.newPriceCtrl,
-    required this.labelCountCtrl,
-    required this.expiryDateCtrl,
     required this.template,
     required this.onCopyZpl,
   });
@@ -58,10 +50,6 @@ class _PreviewCardState extends ConsumerState<PreviewCard> {
     card.titleCtrl,
     card.barcodeCtrl,
     card.subtitleCtrl,
-    card.previousPriceCtrl,
-    card.newPriceCtrl,
-    card.labelCountCtrl,
-    card.expiryDateCtrl,
   ];
 
   @override
@@ -119,10 +107,6 @@ class _PreviewCardState extends ConsumerState<PreviewCard> {
         subtitle: widget.subtitleCtrl.text,
         template: widget.template,
         cfg: ref.read(printerConfigProvider),
-        previousPrice: widget.previousPriceCtrl.text,
-        newPrice: widget.newPriceCtrl.text,
-        expiryDate: widget.expiryDateCtrl.text,
-        copies: int.tryParse(widget.labelCountCtrl.text.trim()) ?? 1,
       );
 
   Future<void> _render() async {
@@ -172,11 +156,7 @@ class _PreviewCardState extends ConsumerState<PreviewCard> {
             qr: widget.template == LabelTemplate.qrCode,
             availableDots: widget.template == LabelTemplate.qrCode
                 ? profile.availableQrDots
-                : profile.availableBarcodeDots(
-                    promotional:
-                        widget.template == LabelTemplate.promoShelf ||
-                        widget.template == LabelTemplate.promoExpiry,
-                  ),
+                : profile.availableBarcodeDots,
           );
     final history = ref.watch(historyProvider);
     final zpl = _zpl();

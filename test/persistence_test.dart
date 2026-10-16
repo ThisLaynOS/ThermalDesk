@@ -13,7 +13,7 @@ LabelJob job(String id) => LabelJob(
   title: 'Produto Exemplo',
   barcode: '',
   subtitle: '',
-  template: LabelTemplate.product,
+  template: LabelTemplate.basic,
   success: true,
   zpl: '^XA^XZ',
 );

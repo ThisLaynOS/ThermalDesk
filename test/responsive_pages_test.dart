@@ -20,7 +20,7 @@ void main() {
       'history': const HistoryPage(),
       'settings': const SettingsPage(),
       'batch': const BatchPrintPage(),
-      'templates': const TemplatePicker(current: LabelTemplate.product),
+      'templates': const TemplatePicker(current: LabelTemplate.basic),
     }.entries) {
       testWidgets('${page.key} sem overflow a ${width.toInt()}px', (
         tester,

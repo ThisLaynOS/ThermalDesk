@@ -233,7 +233,7 @@ class _BatchPrintPageState extends ConsumerState<BatchPrintPage> {
           qr: _template == LabelTemplate.qrCode,
           availableDots: _template == LabelTemplate.qrCode
               ? profile.availableQrDots
-              : profile.availableBarcodeDots(),
+              : profile.availableBarcodeDots,
         );
         if (error != null) {
           ModernSnackbar.warning(context, error);
@@ -373,13 +373,7 @@ class _BatchPrintPageState extends ConsumerState<BatchPrintPage> {
                 ),
               ),
               onChanged: (v) => setState(() => _template = v!),
-              items: LabelTemplate.standard
-                  .where(
-                    (t) =>
-                        t != LabelTemplate.promoShelf &&
-                        t != LabelTemplate.promoExpiry,
-                  )
-                  .map((t) {
+              items: LabelTemplate.standard.map((t) {
                     return DropdownMenuItem(
                       value: t,
                       child: Row(
@@ -427,13 +421,7 @@ class _BatchPrintPageState extends ConsumerState<BatchPrintPage> {
           DropdownButton<LabelTemplate>(
             value: _template,
             onChanged: (v) => setState(() => _template = v!),
-            items: LabelTemplate.standard
-                .where(
-                  (t) =>
-                      t != LabelTemplate.promoShelf &&
-                      t != LabelTemplate.promoExpiry,
-                )
-                .map((t) {
+            items: LabelTemplate.standard.map((t) {
                   return DropdownMenuItem(
                     value: t,
                     child: Row(
