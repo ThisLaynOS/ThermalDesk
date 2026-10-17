@@ -388,7 +388,7 @@ class PrintersPage extends ConsumerWidget {
                         spacing: 8,
                         children: [203, 200, 300].map((d) {
                           return ChoiceChip(
-                            label: Text(d == 203 ? '203 (S4M)' : '$d'),
+                            label: Text('$d'),
                             selected: dpi == d,
                             onSelected: (_) => setState(() {
                               dpi = d;

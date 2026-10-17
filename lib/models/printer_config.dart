@@ -28,7 +28,7 @@ class PrinterConfig {
     ip: '',
     port: 9100,
     dpi: 203,
-    labelSize: '30x100mm (203dpi S4M)',
+    labelSize: '30x100mm (203dpi)',
     isDefault: true,
   );
 
@@ -84,8 +84,10 @@ class PrinterConfig {
     final storedDpi = json['dpi'];
     final dpi = [200, 203, 300].contains(storedDpi) ? storedDpi as int : 203;
     final storedSize = json['labelSize'] as String? ?? defaults.labelSize;
+    // Normaliza nomes antigos pelo tamanho físico, preservando a mídia salva.
+    final dimensions = storedSize.split(' ').first;
     final size = AppConstants.labelSizeForDpi(
-      AppConstants.labelSizes.containsKey(storedSize)
+      AppConstants.labelSizes.keys.any((key) => key.startsWith('$dimensions '))
           ? storedSize
           : defaults.labelSize,
       dpi,

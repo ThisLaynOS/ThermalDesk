@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:thermal_desk/core/constants.dart';
 import 'package:thermal_desk/core/label_validation.dart';
 import 'package:thermal_desk/models/label_job.dart';
 import 'package:thermal_desk/models/label_profile.dart';
@@ -7,6 +8,23 @@ import 'package:thermal_desk/services/thermaldesk_service.dart';
 import 'package:thermal_desk/services/zpl_exporter.dart';
 
 void main() {
+  test(
+    'Perfis com nomes antigos preservam tamanho e resolução ao carregar',
+    () {
+      for (final entry in AppConstants.labelSizes.entries) {
+        final dimensions = entry.key.split(' ').first;
+        final config = PrinterConfig.fromJson({
+          'dpi': entry.value.dpi,
+          'labelSize': '$dimensions (203dpi modelo antigo)',
+        });
+        expect(config.labelSize, entry.key);
+        final profile = LabelProfile.fromConfig(config);
+        expect(profile.width, entry.value.w);
+        expect(profile.height, entry.value.h);
+        expect(config.toJson()['labelSize'], entry.key);
+      }
+    },
+  );
   test('Preços válidos, casas decimais e valores obrigatórios', () {
     for (final value in ['0,00', r'R$ 0,00', '12.34', '1.234,56']) {
       expect(LabelValidation.price(value), isNull);

@@ -134,7 +134,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                   spacing: 8,
                   children: [203, 200, 300].map((d) {
                     return ChoiceChip(
-                      label: Text(d == 203 ? '203 DPI (S4M)' : '$d DPI'),
+                      label: Text('$d DPI'),
                       selected: _dpi == d,
                       onSelected: (_) => setState(() {
                         _dpi = d;
