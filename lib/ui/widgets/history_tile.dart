@@ -119,6 +119,8 @@ class HistoryTile extends ConsumerWidget {
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            if (job.detail.isNotEmpty)
+              Text('${job.template.detailLabel ?? 'Detalhe'}: ${job.detail}'),
             if (job.subtitle.isNotEmpty)
               Text(job.subtitle, style: const TextStyle(fontSize: 12)),
             const SizedBox(height: 2),

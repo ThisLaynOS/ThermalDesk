@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:thermal_desk/core/constants.dart';
 import 'package:thermal_desk/models/printer_config.dart';
+import 'package:thermal_desk/models/label_job.dart';
 
 /// Área de impressão em dots, partilhada pelo ZPL e pelos previews.
 class LabelProfile {
@@ -32,12 +33,17 @@ class LabelProfile {
     );
   }
 
+  double templateScale(LabelTemplate template) =>
+      template == LabelTemplate.priceTag
+      ? math.min(width / 400, height / 240)
+      : math.min(width / 240, height / 800);
+
   double get availableQrDots {
-    final scale = math.min(width / 400, height / 240);
+    final scale = templateScale(LabelTemplate.qrCode);
     return math
         .min(
-          width - (205 * scale).round() - 8,
-          height - (30 * scale).round() - 8,
+          (224 * scale).round() - (56 * scale).round() - 8,
+          (195 * scale).round() - (30 * scale).round() - 8,
         )
         .toDouble();
   }
@@ -45,6 +51,13 @@ class LabelProfile {
   double get availableBarcodeDots {
     final scale = math.min(width / 400, height / 240);
     return width - (20 * scale).round() - 8.0;
+  }
+
+  double barcodeDotsFor(LabelTemplate template) {
+    if (template == LabelTemplate.priceTag) return availableBarcodeDots;
+    if (template == LabelTemplate.qrCode) return availableQrDots;
+    final scale = templateScale(template);
+    return height - (25 * scale).round() - 8.0;
   }
 
   // A API suporta 8 e 12 dpmm; as dimensões em inches preservam os dots.

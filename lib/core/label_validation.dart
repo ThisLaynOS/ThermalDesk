@@ -1,6 +1,22 @@
 import 'package:barcode/barcode.dart';
+import 'package:thermal_desk/models/label_job.dart';
+import 'package:thermal_desk/models/label_profile.dart';
 
 class LabelValidation {
+  static String? templateBarcode(
+    String? value,
+    LabelTemplate template,
+    LabelProfile profile,
+  ) => !template.usesBarcode
+      ? null
+      : barcode(
+          value,
+          qr: template == LabelTemplate.qrCode,
+          ean13: template == LabelTemplate.basic,
+          qrCorrection: BarcodeQRCorrectionLevel.quartile,
+          availableDots: profile.barcodeDotsFor(template),
+        );
+
   static Barcode get code128 =>
       Barcode.code128(useCode128A: false, useCode128C: false);
 
@@ -15,8 +31,11 @@ class LabelValidation {
     return (1 / smallest).round();
   }
 
-  static int qrModules(String data) {
-    final cell = Barcode.qrCode()
+  static int qrModules(
+    String data, {
+    BarcodeQRCorrectionLevel correction = BarcodeQRCorrectionLevel.low,
+  }) {
+    final cell = Barcode.qrCode(errorCorrectLevel: correction)
         .make(data, width: 1, height: 1)
         .whereType<BarcodeBar>()
         .first
@@ -27,6 +46,8 @@ class LabelValidation {
   static String? barcode(
     String? value, {
     required bool qr,
+    bool ean13 = false,
+    BarcodeQRCorrectionLevel qrCorrection = BarcodeQRCorrectionLevel.low,
     double? availableDots,
   }) {
     final input = (value ?? '').trim();
@@ -36,13 +57,23 @@ class LabelValidation {
     if (text.contains('^') || text.contains('~')) {
       return 'Não use ^ ou ~ neste campo';
     }
+    if (ean13) {
+      if (!RegExp(r'^\d{12,13}$').hasMatch(text) ||
+          !Barcode.ean13().isValid(text)) {
+        return 'Informe um EAN-13 válido (12 dígitos ou 13 com verificador)';
+      }
+      if (availableDots != null && 113 > availableDots) {
+        return 'O EAN-13 não cabe neste tamanho de etiqueta';
+      }
+      return null;
+    }
     if (!qr && text.contains('>')) {
       return 'O caractere > é reservado no Code128 ZPL';
     }
     if (qr) {
       if (text.length > 1024) return 'Use até 1024 caracteres';
       try {
-        final modules = qrModules(text);
+        final modules = qrModules(text, correction: qrCorrection);
         if (availableDots != null && modules > availableDots) {
           return 'O QR Code não cabe neste tamanho de etiqueta';
         }

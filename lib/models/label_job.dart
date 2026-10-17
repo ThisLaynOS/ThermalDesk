@@ -19,11 +19,41 @@ enum LabelTemplate {
 
   // Índices 1, 8 e 9 eram Produto, Oferta Gôndola e Oferta Vencimento.
   static LabelTemplate fromStorage(int? id) =>
-      values.where((template) => template.storageId == id).firstOrNull ??
-      basic;
+      values.where((template) => template.storageId == id).firstOrNull ?? basic;
 }
 
 extension LabelTemplateLabel on LabelTemplate {
+  String get titleLabel => this == LabelTemplate.address
+      ? 'Destinatário / Endereço'
+      : 'Título / Nome do produto';
+
+  String get barcodeLabel => switch (this) {
+    LabelTemplate.basic => 'Código de barras (EAN-13)',
+    LabelTemplate.shipping => 'Código de rastreio',
+    LabelTemplate.qrCode => 'URL / Conteúdo do QR Code',
+    LabelTemplate.cable => 'Código do cabo',
+    _ => 'Código de barras (Code128)',
+  };
+
+  String get subtitleLabel => switch (this) {
+    LabelTemplate.address => 'Remetente',
+    LabelTemplate.inventory => 'Quantidade',
+    LabelTemplate.priceTag => 'Preço (R\$)',
+    LabelTemplate.cable => 'ID principal (opcional)',
+    _ => 'Subtítulo / Descrição',
+  };
+
+  String? get detailLabel => switch (this) {
+    LabelTemplate.inventory => 'Data do inventário',
+    LabelTemplate.qrCode => 'Código de identificação',
+    _ => null,
+  };
+
+  bool get showsBarcode => this != LabelTemplate.address;
+  bool get usesBarcode => showsBarcode && this != LabelTemplate.cable;
+  bool get showsSubtitle =>
+      this != LabelTemplate.basic && this != LabelTemplate.shipping;
+
   String get displayName => switch (this) {
     LabelTemplate.custom => 'Personalizado',
     LabelTemplate.basic => 'Básico',
@@ -40,7 +70,7 @@ extension LabelTemplateLabel on LabelTemplate {
     LabelTemplate.basic => 'Título e código de barras simples',
     LabelTemplate.address => 'Etiqueta de endereço/remetente',
     LabelTemplate.shipping => 'Etiqueta de envio com rastreio',
-    LabelTemplate.inventory => 'Controle de estoque com localização',
+    LabelTemplate.inventory => 'Controle de estoque com quantidade e data',
     LabelTemplate.priceTag => 'Etiqueta de preço para gôndola',
     LabelTemplate.qrCode => 'QR Code com informações',
     LabelTemplate.cable => 'Identificação de cabos/fios',
@@ -64,6 +94,7 @@ class LabelJob {
   final String title;
   final String barcode;
   final String subtitle;
+  final String detail;
   final LabelTemplate template;
   final bool success;
   final String zpl;
@@ -74,6 +105,7 @@ class LabelJob {
     required this.title,
     required this.barcode,
     required this.subtitle,
+    this.detail = '',
     required this.template,
     required this.success,
     required this.zpl,
@@ -85,6 +117,7 @@ class LabelJob {
     'title': title,
     'barcode': barcode,
     'subtitle': subtitle,
+    'detail': detail,
     'template': template.storageId,
     'success': success,
     'zpl': zpl,
@@ -96,6 +129,7 @@ class LabelJob {
     title: j['title'] as String? ?? '',
     barcode: j['barcode'] as String? ?? '',
     subtitle: j['subtitle'] as String? ?? '',
+    detail: j['detail'] as String? ?? '',
     template: LabelTemplate.fromStorage(j['template'] as int?),
     success: j['success'] as bool? ?? true,
     zpl: j['zpl'] as String? ?? '',

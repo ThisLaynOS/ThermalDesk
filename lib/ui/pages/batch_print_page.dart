@@ -54,6 +54,7 @@ class _BatchPrintPageState extends ConsumerState<BatchPrintPage> {
           id: const Uuid().v4(),
           title: item.title,
           subtitle: item.subtitle,
+          detail: item.detail,
           barcode: item.barcode,
         ),
       );
@@ -196,9 +197,6 @@ class _BatchPrintPageState extends ConsumerState<BatchPrintPage> {
     titleCtrl.dispose();
   }
 
-  bool templateUsesBarcode(LabelTemplate template) =>
-      template != LabelTemplate.address && template != LabelTemplate.cable;
-
   Future<void> _printAll() async {
     if (_isPrinting || _items.isEmpty) return;
     if (ref.read(sendingProvider)) {
@@ -227,13 +225,11 @@ class _BatchPrintPageState extends ConsumerState<BatchPrintPage> {
     }
     final profile = LabelProfile.fromConfig(cfg);
     for (final item in _items) {
-      if (templateUsesBarcode(_template)) {
-        final error = LabelValidation.barcode(
+      if (_template.usesBarcode) {
+        final error = LabelValidation.templateBarcode(
           item.barcode,
-          qr: _template == LabelTemplate.qrCode,
-          availableDots: _template == LabelTemplate.qrCode
-              ? profile.availableQrDots
-              : profile.availableBarcodeDots,
+          _template,
+          profile,
         );
         if (error != null) {
           ModernSnackbar.warning(context, error);
@@ -250,6 +246,7 @@ class _BatchPrintPageState extends ConsumerState<BatchPrintPage> {
             id: item.id,
             title: item.title,
             subtitle: item.subtitle,
+            detail: item.detail,
             barcode: item.barcode,
           ),
         )
@@ -269,6 +266,7 @@ class _BatchPrintPageState extends ConsumerState<BatchPrintPage> {
           title: item.title,
           barcode: item.barcode,
           subtitle: item.subtitle,
+          detail: item.detail,
           template: template,
           cfg: cfg,
         );
@@ -287,6 +285,7 @@ class _BatchPrintPageState extends ConsumerState<BatchPrintPage> {
               title: item.title,
               barcode: item.barcode,
               subtitle: item.subtitle,
+              detail: item.detail,
               template: template,
               success: ok,
               zpl: zpl,
@@ -374,22 +373,18 @@ class _BatchPrintPageState extends ConsumerState<BatchPrintPage> {
               ),
               onChanged: (v) => setState(() => _template = v!),
               items: LabelTemplate.standard.map((t) {
-                    return DropdownMenuItem(
-                      value: t,
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(t.icon, size: 16),
-                          const SizedBox(width: 6),
-                          Text(
-                            t.displayName,
-                            style: const TextStyle(fontSize: 13),
-                          ),
-                        ],
-                      ),
-                    );
-                  })
-                  .toList(),
+                return DropdownMenuItem(
+                  value: t,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(t.icon, size: 16),
+                      const SizedBox(width: 6),
+                      Text(t.displayName, style: const TextStyle(fontSize: 13)),
+                    ],
+                  ),
+                );
+              }).toList(),
             ),
           ],
         ),
@@ -422,19 +417,18 @@ class _BatchPrintPageState extends ConsumerState<BatchPrintPage> {
             value: _template,
             onChanged: (v) => setState(() => _template = v!),
             items: LabelTemplate.standard.map((t) {
-                  return DropdownMenuItem(
-                    value: t,
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(t.icon, size: 18),
-                        const SizedBox(width: 8),
-                        Text(t.displayName),
-                      ],
-                    ),
-                  );
-                })
-                .toList(),
+              return DropdownMenuItem(
+                value: t,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(t.icon, size: 18),
+                    const SizedBox(width: 8),
+                    Text(t.displayName),
+                  ],
+                ),
+              );
+            }).toList(),
           ),
         ],
       ),
@@ -532,6 +526,7 @@ class _BatchPrintPageState extends ConsumerState<BatchPrintPage> {
                       return _BatchItemCard(
                         key: ValueKey(item.id),
                         item: item,
+                        template: _template,
                         index: index,
                         onRemove: () => _removeItem(item.id),
                         onDuplicate: () => _duplicateItem(item),
@@ -608,17 +603,20 @@ class _BatchItem {
   String title;
   String subtitle;
   String barcode;
+  String detail;
 
   _BatchItem({
     required this.id,
     required this.title,
     required this.subtitle,
     required this.barcode,
+    this.detail = '',
   });
 }
 
 class _BatchItemCard extends StatefulWidget {
   final _BatchItem item;
+  final LabelTemplate template;
   final int index;
   final VoidCallback onRemove;
   final VoidCallback onDuplicate;
@@ -627,6 +625,7 @@ class _BatchItemCard extends StatefulWidget {
   const _BatchItemCard({
     super.key,
     required this.item,
+    required this.template,
     required this.index,
     required this.onRemove,
     required this.onDuplicate,
@@ -641,6 +640,7 @@ class _BatchItemCardState extends State<_BatchItemCard> {
   late final TextEditingController _titleCtrl;
   late final TextEditingController _subtitleCtrl;
   late final TextEditingController _barcodeCtrl;
+  late final TextEditingController _detailCtrl;
   _BatchItem get item => widget.item;
   int get index => widget.index;
   VoidCallback get onDuplicate => widget.onDuplicate;
@@ -653,6 +653,7 @@ class _BatchItemCardState extends State<_BatchItemCard> {
     _titleCtrl = TextEditingController(text: item.title);
     _subtitleCtrl = TextEditingController(text: item.subtitle);
     _barcodeCtrl = TextEditingController(text: item.barcode);
+    _detailCtrl = TextEditingController(text: item.detail);
   }
 
   @override
@@ -660,6 +661,7 @@ class _BatchItemCardState extends State<_BatchItemCard> {
     super.didUpdateWidget(oldWidget);
     if (_titleCtrl.text != item.title) _titleCtrl.text = item.title;
     if (_subtitleCtrl.text != item.subtitle) _subtitleCtrl.text = item.subtitle;
+    if (_detailCtrl.text != item.detail) _detailCtrl.text = item.detail;
     if (_barcodeCtrl.text != item.barcode) _barcodeCtrl.text = item.barcode;
   }
 
@@ -668,6 +670,7 @@ class _BatchItemCardState extends State<_BatchItemCard> {
     _titleCtrl.dispose();
     _subtitleCtrl.dispose();
     _barcodeCtrl.dispose();
+    _detailCtrl.dispose();
     super.dispose();
   }
 
@@ -691,8 +694,10 @@ class _BatchItemCardState extends State<_BatchItemCard> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: TextField(
-                    decoration: const InputDecoration(
-                      labelText: 'Título',
+                    decoration: InputDecoration(
+                      labelText: widget.template == LabelTemplate.address
+                          ? widget.template.titleLabel
+                          : 'Título',
                       isDense: true,
                     ),
                     controller: _titleCtrl,
@@ -724,46 +729,67 @@ class _BatchItemCardState extends State<_BatchItemCard> {
             Row(
               children: [
                 const SizedBox(width: 40),
-                Expanded(
-                  child: TextField(
-                    decoration: const InputDecoration(
-                      labelText: 'Subtítulo',
-                      isDense: true,
-                    ),
-                    controller: _subtitleCtrl,
-                    onChanged: (v) {
-                      item.subtitle = v;
-                      onChanged(item);
-                    },
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: TextField(
-                    decoration: InputDecoration(
-                      labelText: 'Código de barras',
-                      isDense: true,
-                      suffixIcon: IconButton(
-                        icon: const Icon(Icons.camera_alt, size: 20),
-                        tooltip: 'Escanear',
-                        onPressed: () async {
-                          final code = await BarcodeScannerSheet.show(context);
-                          if (code != null && mounted) {
-                            item.barcode = code;
-                            onChanged(item);
-                          }
-                        },
+                if (widget.template.showsSubtitle)
+                  Expanded(
+                    child: TextField(
+                      decoration: InputDecoration(
+                        labelText: widget.template.subtitleLabel,
+                        isDense: true,
                       ),
+                      controller: _subtitleCtrl,
+                      onChanged: (v) {
+                        item.subtitle = v;
+                        onChanged(item);
+                      },
                     ),
-                    controller: _barcodeCtrl,
-                    onChanged: (v) {
-                      item.barcode = v;
-                      onChanged(item);
-                    },
                   ),
-                ),
+                const SizedBox(width: 12),
+                if (widget.template.showsBarcode)
+                  Expanded(
+                    child: TextField(
+                      decoration: InputDecoration(
+                        labelText: widget.template.barcodeLabel,
+                        isDense: true,
+                        suffixIcon: IconButton(
+                          icon: const Icon(Icons.camera_alt, size: 20),
+                          tooltip: 'Escanear',
+                          onPressed: () async {
+                            final code = await BarcodeScannerSheet.show(
+                              context,
+                            );
+                            if (code != null && mounted) {
+                              item.barcode = code;
+                              onChanged(item);
+                            }
+                          },
+                        ),
+                      ),
+                      controller: _barcodeCtrl,
+                      onChanged: (v) {
+                        item.barcode = v;
+                        onChanged(item);
+                      },
+                    ),
+                  ),
               ],
             ),
+            if (widget.template.detailLabel != null) ...[
+              const SizedBox(height: 12),
+              TextField(
+                controller: _detailCtrl,
+                decoration: InputDecoration(
+                  labelText: widget.template.detailLabel,
+                  hintText: widget.template == LabelTemplate.inventory
+                      ? 'dd/mm/aaaa (vazio = hoje)'
+                      : 'Ex.: PROD-001',
+                  isDense: true,
+                ),
+                onChanged: (value) {
+                  item.detail = value;
+                  onChanged(item);
+                },
+              ),
+            ],
           ],
         ),
       ),

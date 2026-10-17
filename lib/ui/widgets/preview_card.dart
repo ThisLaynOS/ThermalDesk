@@ -21,6 +21,7 @@ import 'package:thermal_desk/ui/widgets/zpl_local_preview.dart';
 
 class PreviewCard extends ConsumerStatefulWidget {
   final TextEditingController titleCtrl, barcodeCtrl, subtitleCtrl;
+  final TextEditingController? detailCtrl;
   final LabelTemplate template;
   final VoidCallback onCopyZpl;
 
@@ -29,6 +30,7 @@ class PreviewCard extends ConsumerStatefulWidget {
     required this.titleCtrl,
     required this.barcodeCtrl,
     required this.subtitleCtrl,
+    this.detailCtrl,
     required this.template,
     required this.onCopyZpl,
   });
@@ -50,6 +52,7 @@ class _PreviewCardState extends ConsumerState<PreviewCard> {
     card.titleCtrl,
     card.barcodeCtrl,
     card.subtitleCtrl,
+    if (card.detailCtrl != null) card.detailCtrl!,
   ];
 
   @override
@@ -105,6 +108,7 @@ class _PreviewCardState extends ConsumerState<PreviewCard> {
         title: widget.titleCtrl.text,
         barcode: widget.barcodeCtrl.text,
         subtitle: widget.subtitleCtrl.text,
+        detail: widget.detailCtrl?.text ?? '',
         template: widget.template,
         cfg: ref.read(printerConfigProvider),
       );
@@ -147,17 +151,11 @@ class _PreviewCardState extends ConsumerState<PreviewCard> {
       _invalidate();
     });
     final profile = LabelProfile.fromConfig(config);
-    final barcodeError =
-        widget.template == LabelTemplate.address ||
-            widget.template == LabelTemplate.cable
-        ? null
-        : LabelValidation.barcode(
-            widget.barcodeCtrl.text,
-            qr: widget.template == LabelTemplate.qrCode,
-            availableDots: widget.template == LabelTemplate.qrCode
-                ? profile.availableQrDots
-                : profile.availableBarcodeDots,
-          );
+    final barcodeError = LabelValidation.templateBarcode(
+      widget.barcodeCtrl.text,
+      widget.template,
+      profile,
+    );
     final history = ref.watch(historyProvider);
     final zpl = _zpl();
     return Card(

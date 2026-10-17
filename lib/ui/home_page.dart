@@ -31,6 +31,7 @@ class _HomePageState extends ConsumerState<HomePage> {
   final _titleCtrl = TextEditingController();
   final _barcodeCtrl = TextEditingController();
   final _subtitleCtrl = TextEditingController();
+  final _detailCtrl = TextEditingController();
   LabelTemplate _template = LabelTemplate.basic;
 
   @override
@@ -38,6 +39,7 @@ class _HomePageState extends ConsumerState<HomePage> {
     _titleCtrl.dispose();
     _barcodeCtrl.dispose();
     _subtitleCtrl.dispose();
+    _detailCtrl.dispose();
     super.dispose();
   }
 
@@ -79,7 +81,8 @@ class _HomePageState extends ConsumerState<HomePage> {
     final history = ref.read(historyProvider.notifier);
     final title = _titleCtrl.text,
         barcode = _barcodeCtrl.text,
-        subtitle = _subtitleCtrl.text;
+        subtitle = _subtitleCtrl.text,
+        detail = _detailCtrl.text;
     final template = _template;
     sending.state = true;
     try {
@@ -87,6 +90,7 @@ class _HomePageState extends ConsumerState<HomePage> {
         title: title,
         barcode: barcode,
         subtitle: subtitle,
+        detail: detail,
         template: template,
         cfg: cfg,
       );
@@ -101,6 +105,7 @@ class _HomePageState extends ConsumerState<HomePage> {
             title: title,
             barcode: barcode,
             subtitle: subtitle,
+            detail: detail,
             template: template,
             success: ok,
             zpl: zpl,
@@ -135,6 +140,7 @@ class _HomePageState extends ConsumerState<HomePage> {
           title: _titleCtrl.text,
           barcode: _barcodeCtrl.text,
           subtitle: _subtitleCtrl.text,
+          detail: _detailCtrl.text,
           template: _template,
           cfg: cfg,
         );
@@ -247,6 +253,7 @@ class _HomePageState extends ConsumerState<HomePage> {
       titleCtrl: _titleCtrl,
       barcodeCtrl: _barcodeCtrl,
       subtitleCtrl: _subtitleCtrl,
+      detailCtrl: _detailCtrl,
       selectedTemplate: _template,
       onTemplateChange: (t) => setState(() => _template = t),
       onTest: _testConnection,
@@ -267,6 +274,7 @@ class _HomePageState extends ConsumerState<HomePage> {
       titleCtrl: _titleCtrl,
       barcodeCtrl: _barcodeCtrl,
       subtitleCtrl: _subtitleCtrl,
+      detailCtrl: _detailCtrl,
       template: _template,
       onCopyZpl: _copyZpl,
     );

@@ -91,6 +91,10 @@ class HistoryPage extends ConsumerWidget {
                     subtitle: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        if (job.detail.isNotEmpty)
+                          Text(
+                            '${job.template.detailLabel ?? 'Detalhe'}: ${job.detail}',
+                          ),
                         if (job.subtitle.isNotEmpty) Text(job.subtitle),
                         Text(
                           '${job.template.displayName} · ${fmt.format(job.sentAt)}',

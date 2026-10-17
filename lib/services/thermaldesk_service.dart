@@ -1,5 +1,9 @@
 import 'dart:async';
 
+import 'package:barcode/barcode.dart';
+import 'package:intl/intl.dart';
+import 'package:thermal_desk/core/zpl_graphic.dart';
+
 import 'package:thermal_desk/core/label_validation.dart';
 
 import 'dart:math' as math;
@@ -88,6 +92,7 @@ class ThermalDeskService {
     required String title,
     required String barcode,
     required String subtitle,
+    String detail = '',
     required LabelTemplate template,
     required PrinterConfig cfg,
   }) {
@@ -105,15 +110,14 @@ class ThermalDeskService {
         'Use o modelo personalizado para gerar ZPL.',
       ),
       LabelTemplate.address => _buildAddress(safeTitle, safeSubtitle),
-      LabelTemplate.shipping => _buildShipping(
-        safeTitle,
-        safeBarcode,
-        safeSubtitle,
-      ),
+      LabelTemplate.shipping => _buildShipping(safeTitle, safeBarcode),
       LabelTemplate.inventory => _buildInventory(
         safeTitle,
         safeBarcode,
         safeSubtitle,
+        _sanitize(detail).isEmpty
+            ? DateFormat('dd/MM/yyyy').format(DateTime.now())
+            : _sanitize(detail),
       ),
       LabelTemplate.priceTag => _buildPriceTag(
         safeTitle,
@@ -124,18 +128,28 @@ class ThermalDeskService {
         safeTitle,
         safeBarcode,
         safeSubtitle,
+        _sanitize(detail),
       ),
-      LabelTemplate.cable => _buildCable(safeTitle, safeBarcode),
+      LabelTemplate.cable => _buildCable(safeTitle, safeBarcode, safeSubtitle),
     };
-    return _applyProfile(zpl, cfg);
+    return _applyProfile(zpl, cfg, template);
   }
 
-  String _applyProfile(String zpl, PrinterConfig cfg) {
+  String _applyProfile(String zpl, PrinterConfig cfg, LabelTemplate template) {
     final profile = LabelProfile.fromConfig(cfg);
-    final scale = math.min(profile.width / 400, profile.height / 240);
+    final scale = profile.templateScale(template);
     int dot(String? value) =>
         math.max(1, ((int.tryParse(value ?? '') ?? 0) * scale).round());
-    var output = zpl.replaceAll(RegExp(r'\^PW\d+|\^LL\d+'), '');
+    var output = zpl.replaceAll(RegExp(r'^\^FX.*$', multiLine: true), '');
+    output = output.replaceAll(RegExp(r'\^PW\d+|\^LL\d+'), '');
+    output = output.replaceAllMapped(
+      RegExp(r'\^GFA,(\d+),(\d+),(\d+),([^\^]*)'),
+      (m) => ZplGraphic.decode(
+        int.parse(m[2]!),
+        int.parse(m[3]!),
+        m[4]!,
+      ).scaled(scale).toZpl(),
+    );
     output = output.replaceAllMapped(
       RegExp(r'\^FO(\d+),(\d+)'),
       (m) =>
@@ -150,8 +164,8 @@ class ThermalDeskService {
       (m) => '^FB${dot(m[1])},${m[2]},0,${m[3]!.isEmpty ? 'L' : m[3]}',
     );
     output = output.replaceAllMapped(
-      RegExp(r'\^BC([NR]),(\d+)'),
-      (m) => '^BC${m[1]},${dot(m[2])}',
+      RegExp(r'\^B([CE])([NR]),(\d+)'),
+      (m) => '^B${m[1]}${m[2]},${dot(m[3])}',
     );
     output = output.replaceAllMapped(
       RegExp(r'\^BY(\d+),([^,]+),(\d+)'),
@@ -166,25 +180,29 @@ class ThermalDeskService {
       (m) => '^BQN,2,${dot(m[1]).clamp(1, 10)}',
     );
     output = output.replaceAllMapped(
-      RegExp(r'\^FO(\d+),(\d+)\^BQN,2,(\d+)\^FDLA,([^\^]*)'),
+      RegExp(r'\^FO(\d+),(\d+)\^BQN,2,(\d+)\^FD([LMQH])A,([^\^]*)'),
       (match) {
         var module = int.parse(match[3]!);
         try {
           final available = math.min(
-            profile.width - int.parse(match[1]!) - 8,
-            profile.height - int.parse(match[2]!) - 8,
+            (224 * scale).round() - int.parse(match[1]!) - 8,
+            (195 * scale).round() - int.parse(match[2]!) - 8,
           );
           module = math
               .min(
                 module,
-                (available / LabelValidation.qrModules(match[4]!.trimRight()))
+                (available /
+                        LabelValidation.qrModules(
+                          match[5]!.trimRight(),
+                          correction: BarcodeQRCorrectionLevel.quartile,
+                        ))
                     .floor(),
               )
               .clamp(1, 10);
         } catch (_) {
           module = 1;
         }
-        return '^FO${match[1]},${match[2]}^BQN,2,$module^FDLA,${match[4]}';
+        return '^FO${match[1]},${match[2]}^BQN,2,$module^FD${match[4]}A,${match[5]}';
       },
     );
     output = output.replaceAllMapped(
@@ -211,6 +229,25 @@ class ThermalDeskService {
             '^BC${m[6]},${m[7]},${m[8]},${m[9]},${m[10]}^FD${m[11]}^FS';
       },
     );
+    output = output.replaceAllMapped(
+      RegExp(
+        r'\^FO(\d+),(\d+)\^BY(\d+),([^,]+),(\d+)\^BE([NR]),(\d+),([YN]),([YN])\^FD([^\^]*)\^FS',
+      ),
+      (m) {
+        final available =
+            (m[6] == 'R'
+                ? profile.height - int.parse(m[2]!)
+                : profile.width - int.parse(m[1]!)) -
+            8;
+        final module = math
+            .min(int.parse(m[3]!), (available / 113).floor())
+            .clamp(1, 10);
+        // EAN-13 firmware calculates the check digit from the first 12 digits.
+        final data = m[10]!.trimRight();
+        final payload = data.length == 13 ? data.substring(0, 12) : data;
+        return '^FO${m[1]},${m[2]}^BY$module,${m[4]},${m[7]}^BE${m[6]},${m[7]},${m[8]},${m[9]}^FD$payload^FS';
+      },
+    );
     return output.replaceFirst(
       '^XA',
       '^XA\n^PW${profile.width}\n^LL${profile.height}\n^BY${math.max(1, (2 * scale).round())},2,${math.max(1, (90 * scale).round())}',
@@ -227,31 +264,85 @@ class ThermalDeskService {
   String _buildBasic(String title, String barcode) =>
       '''
 ^XA
-^MNY
 ^CI28
-^FO20,15^A0N,36,36^FD$title^FS
-^FO20,65^BCN,90,Y,N,N^FD$barcode^FS
+^PW240
+^LL800
+^LH0,0
+^LS0
+^FWN
+
+^FX Nome do produto
+^FO110,25^A0R,22,22^FB600,2,0,L^FD$title^FS
+
+^FX Ícone (24x24 rotacionado) + código
+^FO168,16^FWR^GFA,72,72,3,,:::::G3GFGDGFGEGC:::::::::G3J0GCG3GFGDGFGEGC,:::::^FS
+
+^FX Código
+^FO133,39^A0R,28,28^FB600,2,0,L^FD$barcode^FS
+
+^FX Barcode com moldura (se quiser moldura, ^GB...^FS antes)
+^FO8,25^BY6,2,15^BER,93,N,N^FD$barcode^FS
+
+^PQ1,0,1,N
 ^XZ'''
           .trim();
 
   String _buildAddress(String name, String address) =>
       '''
 ^XA
-^MNY
 ^CI28
-^FO20,15^A0N,28,28^FDDe: $name^FS
-^FO20,55^A0N,22,22^FB360,4,,L^FD$address^FS
+^PW240
+^LL800
+^LH0,0
+^LS0
+^FWN
+
+^FX --- Ícone de Localização (24x24 preenchido, rodado 90° horário) ---
+^FO187,25^GFA,72,72,3,000000000000000000000000003F0000FFC001FFE003FFF007FFF00FF3F81FE1F83FE1F83FE1F81FE1F80FF3F807FFF003FFF001FFE000FFC0003F00000000000000000000000000^FS
+
+^FX --- Cabeçalho: DESTINATÁRIO (alinhado abaixo do ícone) ---
+^FO186,54^A0R,22,22^FDDESTINATÁRIO^FS
+
+^FX --- Título do Produto (fonte maior em destaque, com suporte a 2 linhas) ---
+^FO100,25^A0R,34,34^FB750,2,0,L^FD$name^FS
+
+^FX --- Linha Divisória Vertical (substitui o código de barras) ---
+^FO50,25^GB2,750,2^FS
+
+^FX --- Texto do Remetente (à esquerda da linha divisória) ---
+^FO20,25^A0R,20,20^FDRemetente: $address^FS
+
+^PQ1,0,1,N
 ^XZ'''
           .trim();
 
-  String _buildShipping(String title, String barcode, String ref) =>
+  String _buildShipping(String title, String barcode) =>
       '''
 ^XA
-^MNY
 ^CI28
-^FO20,10^A0N,26,26^FD$title^FS
-^FO20,44^A0N,20,20^FDRef: $ref^FS
-^FO20,76^BCN,100,Y,N,N^FD$barcode^FS
+^PW240
+^LL800
+^LH0,0
+^LS0
+^FWN
+
+^FX --- Ícone de Caminhão (24x24 preenchido, rotacionado 90° horário) ---
+^FO195,25^GFA,72,72,3,00000001FFE001FFF007FFF00FFFF00CFFF00CFFF00FFFF007FFF001FFF001FFF001FFF001FFF001FFF001FFF007FFF00FFFF00CE3000CE3000FE70007EE0001FC0001F800000000^FS
+
+^FX --- Cabeçalho: ENVIO (alinhado logo após o ícone) ---
+^FO196,58^A0R,22,22^FDENVIO^FS
+
+^FX --- Título do Produto (em destaque) ---
+^FO148,25^A0R,32,32^FB750,1,0,L^FD$title^FS
+
+^FX --- Caixa de Rastreio (borda retangular + texto interno) ---
+^FO105,25^GB34,265,2^FS
+^FO113,35^A0R,20,20^FDRASTREIO: $barcode^FS
+
+^FX --- Código de Barras com numeração visível à esquerda ---
+^FO35,25^BY4,2,55^BCR,55,Y,N,N^FD$barcode^FS
+
+^PQ1,0,1,N
 ^XZ'''
           .trim();
 
@@ -259,15 +350,41 @@ class ThermalDeskService {
   // TEMPLATE: INVENTÁRIO - Para controle de estoque
   // ══════════════════════════════════════════════════════════════════════════
 
-  String _buildInventory(String title, String barcode, String location) =>
+  String _buildInventory(
+    String title,
+    String barcode,
+    String quantity,
+    String date,
+  ) =>
       '''
 ^XA
-^MNY
 ^CI28
-^FO20,8^A0N,24,24^FB360,2,,L^FD$title^FS
-^FO20,45^A0N,18,18^FDLoc: $location^FS
-^FO20,70^BCN,70,Y,N,N^FD$barcode^FS
-^FO320,8^A0N,16,16^FD#INV^FS
+^PW240
+^LL800
+^LH0,0
+^LS0
+^FWN
+
+^FX --- Ícone do Leitor / Beep (24x24 rotacionado 90° horário) ---
+^FO195,25^GFA,72,72,3,0000000000000000000FC0E03FF3F0303F18300E183E06181FE61801FE1800FE1800F61800F6180007180001D80000F80000300000000000000006D80006D8000CCC000CCC000000^FS
+
+^FX --- Cabeçalho: INVENTÁRIO (alinhado logo após o ícone) ---
+^FO196,58^A0R,22,22^FDINVENTÁRIO^FS
+
+^FX --- Data no canto inferior (alinhada na mesma coluna do cabeçalho) ---
+^FO196,650^A0R,20,20^FD$date^FS
+
+^FX --- Título do Produto (em destaque) ---
+^FO128,25^A0R,34,34^FB750,2,0,L^FD$title^FS
+
+
+^FX --- Quantidade do Produto (em destaque) ---
+^FO100,25^A0R,34,34^FB750,2,0,L^FD$quantity^FS
+
+^FX --- Código de Barras (mais largo, ocupando a lateral esquerda) ---
+^FO50,25^BY6,2,75^BCR,75,Y,N,N^FD$barcode^FS
+
+^PQ1,0,1,N
 ^XZ'''
           .trim();
 
@@ -290,14 +407,39 @@ class ThermalDeskService {
   // TEMPLATE: QR CODE - com texto informativo
   // ══════════════════════════════════════════════════════════════════════════
 
-  String _buildQrCode(String title, String data, String subtitle) {
+  String _buildQrCode(String title, String data, String subtitle, String code) {
     return '''
 ^XA
-^MNY
 ^CI28
-^FO20,8^A0N,20,20^FB170,2,,L^FD$title^FS
-^FO20,40^A0N,16,16^FB170,3,,L^FD$subtitle^FS
-^FO205,30^BQN,2,4^FDLA,$data^FS
+^PW240
+^LL800
+^LH0,0
+^LS0
+^FWN
+
+^FX --- Moldura Externa Suave (Opcional - dá acabamento à etiqueta) ---
+^FO8,10^GB224,780,2,B,1^FS
+
+^FX --- QR Code no Topo (Centrado) ---
+^FO56,30^BQN,2,6^FDQA,$data^FS
+
+^FX --- Linha Divisória Horizontal (Separa o QR Code dos dados) ---
+^FO20,195^GB200,2,2^FS
+
+^FX --- Ícone de Mini QR Code (24x24 rodado 90° horário) + Cabeçalho ---
+^FO187,215^GFA,72,72,3,FE03F8820208BA82E8BA82E8BA82E8820208FE03F80000003B8FF02908403A8B500208002B8FF0000000FE02A8820080BA03A0BA00A8BA02E8820200FE03B8000000000000000000^FS
+^FO185,248^A0R,20,20^FDQR CODE^FS
+
+^FX --- Título do Produto (Fonte maior e bem destacada, até 2 linhas) ---
+^FO110,215^A0R,32,32^FB555,2,0,L^FD$title^FS
+
+^FO120,215^A0R,22,22^FD$subtitle^FS
+
+^FX --- Badge / Caixa de Código Numérico (Na lateral esquerda) ---
+^FO30,215^GB40,320,2,B,1^FS
+^FO40,230^A0R,22,22^FDCÓD: $code^FS
+
+^PQ1,0,1,N
 ^XZ'''
         .trim();
   }
@@ -306,16 +448,55 @@ class ThermalDeskService {
   // TEMPLATE: CABO/FIO - Identificação de cabos com texto repetido
   // ══════════════════════════════════════════════════════════════════════════
 
-  String _buildCable(String label, String code) =>
+  String _buildCable(String title, String code, String id) =>
       '''
 ^XA
-^MNY
 ^CI28
-^FO15,10^A0N,24,24^FB370,1,,C^FD$label^FS
-^FO15,45^A0N,18,18^FB370,1,,C^FD$code^FS
-^FO10,70^GB380,2,2^FS
-^FO15,85^A0N,24,24^FB370,1,,C^FD$label^FS
-^FO15,120^A0N,18,18^FB370,1,,C^FD$code^FS
+^PW240
+^LL800
+^LH0,0
+^LS0
+^FWN
+
+^FX --- TOPO: Tarja Preta com Ícone de Cabo + Cabeçalho ---
+^FO15,15^GB210,36,36^FS
+^FO24,21^FR^GFA,72,72,3,000000007E00007E0000DB0000DB0003FFC007FFE007FFE007FFE003FF8001FF00007E00003C00003C00003C00003C00003C00003C00007E00007E00003C00003C00003C00000000^FS
+^FO77,24^FR^A0N,22,22^FDCABO / FIO^FS
+
+^FX --- Subtítulo com o Código/ID Principal ---
+^FO15,58^GB210,28,2^FS
+^FO20,64^A0N,18,18^FB200,1,0,C^FDID: ${id.isEmpty ? code : id}^FS
+
+^FX --- BLOCO 1 (Repetição para envolver o cabo) ---
+^FO20,115^A0N,26,26^FB200,2,0,C^FD$title^FS
+^FO20,175^A0N,18,18^FB200,1,0,C^FD$code^FS
+^FO25,205^GB190,1,1^FS
+
+^FX --- BLOCO 2 ---
+^FO20,230^A0N,26,26^FB200,2,0,C^FD$title^FS
+^FO20,290^A0N,18,18^FB200,1,0,C^FD$code^FS
+^FO25,320^GB190,1,1^FS
+
+^FX --- BLOCO 3 ---
+^FO20,345^A0N,26,26^FB200,2,0,C^FD$title^FS
+^FO20,405^A0N,18,18^FB200,1,0,C^FD$code^FS
+^FO25,435^GB190,1,1^FS
+
+^FX --- BLOCO 4 ---
+^FO20,460^A0N,26,26^FB200,2,0,C^FD$title^FS
+^FO20,520^A0N,18,18^FB200,1,0,C^FD$code^FS
+^FO25,550^GB190,1,1^FS
+
+^FX --- BLOCO 5 ---
+^FO20,575^A0N,26,26^FB200,2,0,C^FD$title^FS
+^FO20,635^A0N,18,18^FB200,1,0,C^FD$code^FS
+^FO25,665^GB190,1,1^FS
+
+^FX --- BLOCO 6 (Final da volta) ---
+^FO20,690^A0N,26,26^FB200,2,0,C^FD$title^FS
+^FO20,750^A0N,18,18^FB200,1,0,C^FD$code^FS
+
+^PQ1,0,1,N
 ^XZ'''
           .trim();
 }

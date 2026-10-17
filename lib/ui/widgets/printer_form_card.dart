@@ -14,6 +14,7 @@ class PrinterFormCard extends ConsumerWidget {
   final TextEditingController titleCtrl;
   final TextEditingController barcodeCtrl;
   final TextEditingController subtitleCtrl;
+  final TextEditingController? detailCtrl;
   final LabelTemplate selectedTemplate;
   final ValueChanged<LabelTemplate> onTemplateChange;
   final VoidCallback onTest;
@@ -26,6 +27,7 @@ class PrinterFormCard extends ConsumerWidget {
     required this.titleCtrl,
     required this.barcodeCtrl,
     required this.subtitleCtrl,
+    this.detailCtrl,
     required this.selectedTemplate,
     required this.onTemplateChange,
     required this.onTest,
@@ -76,7 +78,7 @@ class PrinterFormCard extends ConsumerWidget {
               TextFormField(
                 controller: titleCtrl,
                 decoration: InputDecoration(
-                  labelText: 'Título / Nome do produto',
+                  labelText: selectedTemplate.titleLabel,
                   prefixIcon: const Icon(Icons.title),
                   hintText: 'Produto Exemplo',
                   isDense: isMobile,
@@ -87,71 +89,74 @@ class PrinterFormCard extends ConsumerWidget {
                     : null,
               ),
               SizedBox(height: isMobile ? 10 : 12),
-              TextFormField(
-                controller: barcodeCtrl,
-                validator:
-                    selectedTemplate == LabelTemplate.address ||
-                        selectedTemplate == LabelTemplate.cable
-                    ? null
-                    : (value) {
-                        final profile = LabelProfile.fromConfig(cfg);
-                        final qr = selectedTemplate == LabelTemplate.qrCode;
-                        return LabelValidation.barcode(
-                          value,
-                          qr: qr,
-                          availableDots: qr
-                              ? profile.availableQrDots
-                              : profile.availableBarcodeDots,
-                        );
-                      },
-                decoration: InputDecoration(
-                  labelText: selectedTemplate == LabelTemplate.qrCode
-                      ? 'URL / Conteúdo do QR Code'
-                      : 'Código de barras (EAN / Code128)',
-                  prefixIcon: const Icon(Icons.qr_code_scanner),
-                  hintText: selectedTemplate == LabelTemplate.qrCode
-                      ? 'https://exemplo.local'
-                      : '0000000000000',
-                  isDense: isMobile,
-                  suffixIcon: IconButton(
-                    icon: const Icon(Icons.camera_alt),
-                    tooltip: 'Escanear código de barras',
-                    onPressed: () async {
-                      final code = await BarcodeScannerSheet.show(context);
-                      if (code != null && context.mounted) {
-                        barcodeCtrl.text = code;
-                      }
-                    },
+              if (selectedTemplate.showsBarcode)
+                TextFormField(
+                  controller: barcodeCtrl,
+                  validator: (value) => LabelValidation.templateBarcode(
+                    value,
+                    selectedTemplate,
+                    LabelProfile.fromConfig(cfg),
                   ),
+                  decoration: InputDecoration(
+                    labelText: selectedTemplate.barcodeLabel,
+                    prefixIcon: const Icon(Icons.qr_code_scanner),
+                    hintText: selectedTemplate == LabelTemplate.qrCode
+                        ? 'https://exemplo.local'
+                        : '0000000000000',
+                    isDense: isMobile,
+                    suffixIcon: IconButton(
+                      icon: const Icon(Icons.camera_alt),
+                      tooltip: 'Escanear código de barras',
+                      onPressed: () async {
+                        final code = await BarcodeScannerSheet.show(context);
+                        if (code != null && context.mounted) {
+                          barcodeCtrl.text = code;
+                        }
+                      },
+                    ),
+                  ),
+                  style: TextStyle(fontSize: isMobile ? 14 : 16),
+                  keyboardType: selectedTemplate == LabelTemplate.qrCode
+                      ? TextInputType.url
+                      : TextInputType.text,
                 ),
-                style: TextStyle(fontSize: isMobile ? 14 : 16),
-                keyboardType: selectedTemplate == LabelTemplate.qrCode
-                    ? TextInputType.url
-                    : TextInputType.text,
-              ),
               SizedBox(height: isMobile ? 10 : 12),
-              TextFormField(
-                controller: subtitleCtrl,
-                validator: selectedTemplate == LabelTemplate.priceTag
-                    ? (value) => LabelValidation.price(value, allowEmpty: true)
-                    : null,
-                keyboardType: selectedTemplate == LabelTemplate.priceTag
-                    ? const TextInputType.numberWithOptions(decimal: true)
-                    : TextInputType.text,
-                decoration: InputDecoration(
-                  labelText: selectedTemplate == LabelTemplate.priceTag
-                      ? 'Preço (R\$)'
-                      : 'Subtítulo / Descrição',
-                  hintText: selectedTemplate == LabelTemplate.priceTag
-                      ? 'R\$ 0,00'
+              if (selectedTemplate.showsSubtitle)
+                TextFormField(
+                  controller: subtitleCtrl,
+                  validator: selectedTemplate == LabelTemplate.priceTag
+                      ? (value) =>
+                            LabelValidation.price(value, allowEmpty: true)
                       : null,
-                  prefixIcon: const Icon(Icons.short_text),
-                  isDense: isMobile,
+                  keyboardType: selectedTemplate == LabelTemplate.priceTag
+                      ? const TextInputType.numberWithOptions(decimal: true)
+                      : TextInputType.text,
+                  decoration: InputDecoration(
+                    labelText: selectedTemplate.subtitleLabel,
+                    hintText: selectedTemplate == LabelTemplate.priceTag
+                        ? 'R\$ 0,00'
+                        : null,
+                    prefixIcon: const Icon(Icons.short_text),
+                    isDense: isMobile,
+                  ),
+                  style: TextStyle(fontSize: isMobile ? 14 : 16),
                 ),
-                style: TextStyle(fontSize: isMobile ? 14 : 16),
-              ),
               SizedBox(height: isMobile ? 16 : 20),
 
+              if (selectedTemplate.detailLabel != null &&
+                  detailCtrl != null) ...[
+                TextFormField(
+                  controller: detailCtrl,
+                  decoration: InputDecoration(
+                    labelText: selectedTemplate.detailLabel,
+                    hintText: selectedTemplate == LabelTemplate.inventory
+                        ? 'dd/mm/aaaa (vazio = hoje)'
+                        : 'Ex.: PROD-001',
+                    isDense: isMobile,
+                  ),
+                ),
+                SizedBox(height: isMobile ? 16 : 20),
+              ],
               // — Template picker —
               _SectionHeader(
                 icon: Icons.dashboard_customize_outlined,

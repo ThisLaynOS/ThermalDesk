@@ -46,7 +46,7 @@ void main() {
       template: template,
       cfg: config,
     );
-    expect(build(LabelTemplate.basic), contains('^BCN'));
+    expect(build(LabelTemplate.basic), contains('^BER'));
     expect(build(LabelTemplate.basic), contains('0000000000000'));
     expect(build(LabelTemplate.inventory), contains('^FB'));
     expect(build(LabelTemplate.qrCode), contains('https://exemplo.local'));
@@ -140,11 +140,7 @@ void main() {
                     int.parse(field[3]!);
             if (extent > max) {
               expect(
-                LabelValidation.barcode(
-                  data,
-                  qr: false,
-                  availableDots: profile.availableBarcodeDots,
-                ),
+                LabelValidation.templateBarcode(data, template, profile),
                 isNotNull,
               );
             } else {

@@ -2,6 +2,7 @@ import 'dart:math' as math;
 import 'dart:convert';
 
 import 'package:thermal_desk/core/label_validation.dart';
+import 'package:thermal_desk/core/zpl_graphic.dart';
 
 import 'package:barcode_widget/barcode_widget.dart';
 import 'package:flutter/material.dart';
@@ -65,7 +66,8 @@ class ZplPreviewPainter extends CustomPainter {
         case 'BY':
           module = number(0, 2);
         case 'BC':
-          type = 'barcode';
+        case 'BE':
+          type = command == 'BE' ? 'ean13' : 'barcode';
           orientation = args.first;
           barcodeHeight = number(1, 90);
           drawBarcodeText = args.length > 2 && args[2] == 'Y';
@@ -77,6 +79,23 @@ class ZplPreviewPainter extends CustomPainter {
           inverse = true;
         case 'FH':
           hexMarker = value.isEmpty ? '_' : value[0];
+        case 'GF':
+          if (args.length >= 5 && args.first == 'A') {
+            final graphic = ZplGraphic.decode(
+              number(2).toInt(),
+              number(3).toInt(),
+              args.sublist(4).join(','),
+            );
+            final paint = Paint()
+              ..color = inverse ? Colors.white : Colors.black;
+            for (var row = 0; row < graphic.height; row++) {
+              for (var col = 0; col < graphic.width; col++) {
+                if (graphic.pixel(col, row)) {
+                  canvas.drawRect(Rect.fromLTWH(x + col, y + row, 1, 1), paint);
+                }
+              }
+            }
+          }
         case 'GB':
           final width = number(0), height = number(1), thickness = number(2, 1);
           final rect = Rect.fromLTWH(x, y, width, height);
@@ -140,14 +159,23 @@ class ZplPreviewPainter extends CustomPainter {
             painter.dispose();
           } else {
             try {
-              final data = type == 'qr' && value.startsWith('LA,')
+              final data = type == 'qr' && RegExp(r'^[LMQH]A,').hasMatch(value)
                   ? value.substring(3)
                   : value;
               final barcode = type == 'qr'
-                  ? Barcode.qrCode()
+                  ? Barcode.qrCode(
+                      errorCorrectLevel: switch (value[0]) {
+                        'Q' => BarcodeQRCorrectionLevel.quartile,
+                        'H' => BarcodeQRCorrectionLevel.high,
+                        'M' => BarcodeQRCorrectionLevel.medium,
+                        _ => BarcodeQRCorrectionLevel.low,
+                      },
+                    )
+                  : type == 'ean13'
+                  ? Barcode.ean13()
                   : LabelValidation.code128;
               final bars = barcode
-                  .make(data, width: 1, height: 1)
+                  .make(data, width: 1, height: 1, drawText: false)
                   .whereType<BarcodeBar>()
                   .toList();
               final unit = type == 'qr'
@@ -173,7 +201,7 @@ class ZplPreviewPainter extends CustomPainter {
                   Paint()..color = Colors.black,
                 );
               }
-              if (type == 'barcode' && drawBarcodeText) {
+              if (type != 'qr' && drawBarcodeText) {
                 final painter = TextPainter(
                   text: TextSpan(
                     text: data,
